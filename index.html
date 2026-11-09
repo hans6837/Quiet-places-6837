@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Quiet Places</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body class="not-started">
+
+<div id="stage">
+  <div class="layer"><img alt=""></div>
+  <div class="layer"><img alt=""></div>
+  <div id="dim"></div>
+</div>
+
+<!-- Start screen -->
+<div id="start">
+  <h1>Quiet Places</h1>
+  <p class="sub">Real photos and real recordings from twelve quiet places.</p>
+  <button id="begin" class="big">Begin</button>
+  <ul id="start-notes"></ul>
+</div>
+
+<!-- Top bar -->
+<header id="top" class="controls">
+  <nav id="cats" role="tablist" aria-label="Categories"></nav>
+  <div id="title">
+    <div id="scene-name"></div>
+    <div id="scene-hear"></div>
+  </div>
+  <div class="right">
+    <button id="btn-credits" class="ghost">Credits</button>
+    <button id="btn-settings" class="ghost">Settings</button>
+    <button id="btn-full" class="ghost" title="Full screen (F)">⤢</button>
+  </div>
+</header>
+
+<!-- Bottom bar -->
+<footer id="bottom" class="controls">
+  <button id="btn-play" class="round" title="Play / pause (space)">❚❚</button>
+  <button id="btn-new" title="New scene (N)">New scene</button>
+  <select id="scene-select" aria-label="Choose scene"></select>
+  <label class="vol">🔈 <input id="volume" type="range" min="0" max="100" value="80" aria-label="Volume"></label>
+  <label>Sleep
+    <select id="sleep">
+      <option value="0">Off</option><option value="15">15 min</option><option value="30">30 min</option>
+      <option value="45">45 min</option><option value="60">1 hour</option><option value="90">1½ hours</option>
+    </select>
+  </label>
+  <span id="sleep-left"></span>
+  <span id="status"></span>
+</footer>
+
+<!-- Discreet credit (always visible: required by Pexels/Unsplash/Wikimedia terms) -->
+<div id="credit">
+  <div id="photo-credit"></div>
+  <div id="sound-credit"></div>
+</div>
+
+<!-- Settings -->
+<section id="settings" class="panel" hidden>
+  <button class="close" aria-label="Close">×</button>
+  <h2>Settings</h2>
+  <label class="row">Change photo every
+    <select id="photo-interval">
+      <option value="30">30 seconds</option><option value="60">1 minute</option>
+      <option value="120">2 minutes</option><option value="300">5 minutes</option>
+    </select>
+  </label>
+  <label class="row">Change scene automatically
+    <select id="auto-scene">
+      <option value="0">Off</option><option value="5">every 5 minutes</option><option value="10">every 10 minutes</option>
+      <option value="15">every 15 minutes</option><option value="30">every 30 minutes</option><option value="60">every hour</option>
+    </select>
+  </label>
+  <h3>Photo sources</h3>
+  <table id="source-status"></table>
+  <p class="hint">API keys live in <code>config.js</code> next to <code>index.html</code>. Photos are cached (last 30) so the app keeps working offline.</p>
+  <p><span id="cache-count"></span> <button id="clear-cache" class="ghost small">Clear photo cache</button></p>
+  <h3>Sounds</h3>
+  <div id="sound-status"></div>
+</section>
+
+<!-- Credits -->
+<section id="credits" class="panel wide" hidden>
+  <button class="close" aria-label="Close">×</button>
+  <h2>Credits</h2>
+  <h3>Photo on screen now</h3>
+  <p id="credits-photo"></p>
+  <p class="hint">Photos come live from <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a> (Pexels License),
+    <a href="https://unsplash.com/?utm_source=quiet_places&utm_medium=referral" target="_blank" rel="noopener">Unsplash</a> (Unsplash License)
+    and <a href="https://commons.wikimedia.org" target="_blank" rel="noopener">Wikimedia Commons</a> (CC0, public domain, CC BY, CC BY-SA only).
+    The photographer and source of every photo are shown in the lower-right corner while it is on screen.
+    The painted fallback scenes were made for this app.</p>
+  <h3>Sounds</h3>
+  <p class="hint">All recordings are from <a href="https://freesound.org" target="_blank" rel="noopener">Freesound</a>, licensed CC0 or CC BY.</p>
+  <div id="credits-sounds"></div>
+</section>
+
+<!-- Sleep overlay -->
+<div id="sleep-screen" hidden>
+  <p>Sleep well.</p>
+  <p class="sub">Tap anywhere to wake.</p>
+</div>
+
+<script src="config.js"></script>
+<script src="sounds/manifest.js"></script>
+<script src="js/scenes.js"></script>
+<script src="js/painted.js"></script>
+<script src="js/photos.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
