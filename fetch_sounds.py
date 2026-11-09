@@ -156,12 +156,13 @@ BANNED_RE = word_re(BANNED)
 
 
 def read_key():
+    env = re.sub(r"\s+", "", os.environ.get("FREESOUND_KEY", ""))  # ignore stray spaces / line breaks
     path = os.path.join(HERE, "config.js")
     if not os.path.exists(path):
-        return os.environ.get("FREESOUND_KEY", "")
+        return env
     with open(path, encoding="utf-8") as f:
         m = re.search(r"freesoundKey\s*:\s*[\"']([^\"']*)[\"']", f.read())
-    return (m.group(1).strip() if m else "") or os.environ.get("FREESOUND_KEY", "")
+    return (m.group(1).strip() if m else "") or env
 
 
 _last_call = [0.0]
@@ -185,7 +186,10 @@ def api_get(path, params, key):
                 time.sleep(60)
                 continue
             if e.code in (401, 403):
-                raise SystemExit("Freesound rejected the API key (HTTP %d). Check freesoundKey in config.js." % e.code)
+                raise SystemExit(
+                    "Freesound rejected the API key (HTTP %d). Use the long 'Client secret/Api key' from "
+                    "https://freesound.org/apiv2/apply (not the shorter 'Client id'), in config.js or the "
+                    "FREESOUND_KEY secret." % e.code)
             if e.code == 400 and attempt == 0:
                 raise
             time.sleep(2 ** attempt)
