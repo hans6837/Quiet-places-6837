@@ -1,0 +1,44 @@
+# Downloads the nature recordings from Freesound and saves them in sounds/,
+# so the web version (iPad) can play them. Run it from the Actions tab:
+#   Actions → "Download sounds" → Run workflow.
+# Needs a repository secret named FREESOUND_KEY (Settings → Secrets and
+# variables → Actions → New repository secret).
+name: Download sounds
+
+on:
+  workflow_dispatch:
+    inputs:
+      refresh:
+        description: "Choose all recordings again (instead of only filling gaps)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Download and check recordings
+        env:
+          FREESOUND_KEY: ${{ secrets.FREESOUND_KEY }}
+        run: |
+          if [ -z "$FREESOUND_KEY" ]; then
+            echo "::error::Add a repository secret named FREESOUND_KEY first (Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+          python3 fetch_sounds.py ${{ inputs.refresh && '--refresh' || '' }}
+          cat sounds/REPORT.md >> "$GITHUB_STEP_SUMMARY"
+      - name: Save the recordings in the repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+          git add sounds
+          if git diff --cached --quiet; then echo "No changes."; exit 0; fi
+          git commit -m "Download nature recordings from Freesound"
+          git push

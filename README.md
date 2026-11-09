@@ -5,7 +5,31 @@ shows a new **real photo** fetched live from Pexels, Unsplash or Wikimedia
 Commons, and plays **real nature recordings** from Freesound that match the
 photo: a loon photo comes with loon calls, a rocky coast with surf on rocks.
 
-## Start it
+## On the iPad (web address)
+
+Open **https://hans6837.github.io/Quiet-places-6837/** in Safari, then
+**Share → Add to Home Screen → Add**. Tap **Settings → Photo keys**, paste your
+Pexels and Unsplash keys, and tap **Save keys**. They are stored on the iPad
+only.
+
+### One-time setup on GitHub (already done if the address works)
+
+1. **Turn on the web address:** repository **Settings → Pages**. Under
+   "Branch", choose **main** and **/ (root)**, then tap **Save**. After a minute
+   or two the address above works.
+2. **Download the sounds:** the iPad can't run the download script, so GitHub
+   does it.
+   - **Settings → Secrets and variables → Actions → New repository secret**.
+     Name it `FREESOUND_KEY`, paste your Freesound key as the value, and tap
+     **Add secret**.
+   - **Actions → Download sounds → Run workflow**. It takes about two minutes,
+     saves the recordings into `sounds/`, and the web address picks them up
+     shortly after. Its summary shows which recordings were chosen and why.
+
+The recordings are CC0 or CC BY, so they may be shared publicly. The authors
+and licences are listed in the app's **Credits** screen.
+
+## On a computer
 
 You need **Python 3** (free from python.org; Macs and most PCs already have it).
 
@@ -78,7 +102,7 @@ source stay visible in a corner, as the photo sites require.
 **Sounds** (`fetch_sounds.py`, `js/audio.js`)
 - Each scene gets 3 to 5 recordings from Freesound, CC0 or CC BY only.
   `fetch_sounds.py` checks every recording by its metadata:
-  - its length must be between 12–20 seconds and 5 minutes;
+  - its length must be between 12–20 seconds and 4 minutes;
   - its name, tags and description must fit the scene, for example
     "rocks/cliffs" for the rocky coast, or "humpback/hydrophone" for the whales;
   - anything that mentions music, synths, voices, people, traffic, engines,

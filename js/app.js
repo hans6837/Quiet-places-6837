@@ -264,6 +264,8 @@
     const choices = [30, 60, 120, 300];
     const nearest = choices.reduce((a, b) => Math.abs(b - state.photoInterval) < Math.abs(a - state.photoInterval) ? b : a);
     $("#photo-interval").value = String(nearest);
+    const k = window.QP_KEYS.get();
+    $("#key-pexels").value = k.pexelsKey; $("#key-unsplash").value = k.unsplashAccessKey;
     $("#auto-scene").value = String(state.autoScene);
     const st = PHOTOS.status();
     $("#source-status").innerHTML = Object.values(st).map(s => {
@@ -278,7 +280,7 @@
     $("#cache-count").textContent = `${cached.length} photo${cached.length === 1 ? "" : "s"} saved for offline use.`;
     const man = window.QP_SOUNDS;
     if (!man) {
-      $("#sound-status").innerHTML = `<p class="warn">No recordings downloaded yet. Put your Freesound key in config.js and start the app with the start script (or run <code>python3 server.py --sounds</code>).</p>`;
+      $("#sound-status").innerHTML = `<p class="warn">No recordings downloaded yet. See the README: “Download the sounds”.</p>`;
     } else {
       const counts = SCENES.map(s => `${esc(s.name)}: ${(man.scenes[s.id] || []).length}`).join(" · ");
       $("#sound-status").innerHTML = `<p class="hint">${counts}</p><p class="hint">Downloaded ${esc((man.generated || "").slice(0, 10))}. ${AUDIO.usingWebAudio() ? "Volumes are matched between scenes." : "Opened as a file: start with the start script to match volumes between scenes."}</p>`;
@@ -300,10 +302,9 @@
   // ------------------------------------------------------------ start screen notes
   function startNotes() {
     const notes = [];
-    if (!CFG) notes.push("No <code>config.js</code> found — copy <code>config.example.js</code> to <code>config.js</code> and add your keys. Wikimedia photos still work without keys.");
-    else if (!CFG.pexelsKey && !CFG.unsplashAccessKey) notes.push("No Pexels or Unsplash key in config.js — using Wikimedia Commons photos only.");
-    if (!window.QP_SOUNDS) notes.push("No recordings downloaded yet — scenes will be silent. Add your Freesound key and start with the start script.");
-    if (location.protocol === "file:") notes.push("Opened as a file. It works, but for matched volumes and the photo proxy, use the start script.");
+    if (!CFG.pexelsKey && !CFG.unsplashAccessKey) notes.push("No Pexels or Unsplash key yet — add them under <b>Settings → Photo keys</b>. Until then, photos come from Wikimedia Commons only.");
+    if (!window.QP_SOUNDS) notes.push("No recordings downloaded yet — scenes will be silent. See the README: “Download the sounds”.");
+    if (location.protocol === "file:") notes.push("Opened as a file. It works, but for matched volumes use the start script.");
     $("#start-notes").innerHTML = notes.map(n => `<li>${n}</li>`).join("");
   }
 
@@ -338,6 +339,11 @@
       if (!document.body.classList.contains("not-started")) schedulePhotos(state.token, sceneById(state.sceneId));
     });
     $("#auto-scene").addEventListener("change", e => { state.autoScene = +e.target.value; save("autoScene", state.autoScene); resetAutoScene(); });
+    $("#save-keys").addEventListener("click", () => {
+      const ok = window.QP_KEYS.save({ pexelsKey: $("#key-pexels").value, unsplashAccessKey: $("#key-unsplash").value });
+      $("#keys-msg").textContent = ok ? "Saved — restarting…" : "Could not save (private browsing?)";
+      if (ok) setTimeout(() => location.reload(), 700);
+    });
     $("#clear-cache").addEventListener("click", async () => { await PHOTOS.clearCache(); renderSettings(); });
     $("#btn-full").addEventListener("click", toggleFull);
     $("#sleep-screen").addEventListener("click", wake);

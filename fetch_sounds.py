@@ -229,7 +229,7 @@ def check(sound, spec):
         return False, f"licence not CC0/CC BY ({sound.get('license')})", 0
     if dur < spec.get("min_dur", 20):
         return False, f"too short ({dur:.0f} s)", 0
-    if dur > 300:
+    if dur > 240:
         return False, f"too long ({dur:.0f} s)", 0
     hit = banned_hit(text)
     if hit:
@@ -332,7 +332,7 @@ def run(key, refresh=False, only=None):
         lic_filter = '(license:"Creative Commons 0" OR license:"Attribution")'
         for q in spec["queries"]:
             params = {"query": q, "fields": FIELDS, "page_size": 60,
-                      "filter": f"duration:[{spec.get('min_dur', 20)} TO 300] {lic_filter}"}
+                      "filter": f"duration:[{spec.get('min_dur', 20)} TO 240] {lic_filter}"}
             try:
                 data = api_get("/search/text/", params, key)
             except urllib.error.HTTPError:

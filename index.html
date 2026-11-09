@@ -4,6 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Quiet Places</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Quiet Places">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b0d10">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-512.png">
+<link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body class="not-started">
@@ -74,9 +82,14 @@
       <option value="15">every 15 minutes</option><option value="30">every 30 minutes</option><option value="60">every hour</option>
     </select>
   </label>
+  <h3>Photo keys</h3>
+  <p class="hint">Paste your keys once; they are saved on this device only.</p>
+  <label class="row">Pexels <input id="key-pexels" type="password" autocomplete="off" spellcheck="false" placeholder="Pexels API key"></label>
+  <label class="row">Unsplash <input id="key-unsplash" type="password" autocomplete="off" spellcheck="false" placeholder="Unsplash Access Key"></label>
+  <p><button id="save-keys" class="small">Save keys</button> <span id="keys-msg" class="hint"></span></p>
   <h3>Photo sources</h3>
   <table id="source-status"></table>
-  <p class="hint">API keys live in <code>config.js</code> next to <code>index.html</code>. Photos are cached (last 30) so the app keeps working offline.</p>
+  <p class="hint">Photos are cached (the last 30) so the app keeps working offline.</p>
   <p><span id="cache-count"></span> <button id="clear-cache" class="ghost small">Clear photo cache</button></p>
   <h3>Sounds</h3>
   <div id="sound-status"></div>
@@ -104,7 +117,8 @@
   <p class="sub">Tap anywhere to wake.</p>
 </div>
 
-<script src="config.js"></script>
+<script src="config.js" onerror="void 0"></script>
+<script src="js/keys.js"></script>
 <script src="sounds/manifest.js"></script>
 <script src="js/scenes.js"></script>
 <script src="js/painted.js"></script>
