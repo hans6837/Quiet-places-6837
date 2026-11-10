@@ -90,7 +90,7 @@ SCENES = {
         need=["rain", "rainfall", "raindrops", "drizzle", "shower"],
         need2=["leaves", "leaf", "forest", "woods", "woodland", "trees", "foliage"],
         avoid=["roof", "window", "umbrella", "tent", "car", "metal", "gutter", "tin", "porch", "awning", "skylight",
-               "heavy thunder", "downpour city"],
+               "heavy thunder", "downpour city", "frog", "frogs", "coqui", "coqui-frogs", "insects"],
     ),
     "forest-night": dict(
         queries=["night forest crickets owl", "crickets night ambience", "owl night forest", "tawny owl night"],
@@ -102,7 +102,7 @@ SCENES = {
     "loons": dict(
         queries=["common loon", "loon call lake", "loon wail", "gavia immer"],
         need=["loon", "loons", "gavia", "great northern diver"],
-        avoid=["toy", "imitation", "looney", "loony", "cartoon"],
+        avoid=["toy", "imitation", "looney", "loony", "cartoon", "rain", "thunder"],
         min_dur=12,
     ),
     "frog-pond": dict(
@@ -145,6 +145,8 @@ BANNED = [
     "binaural beats", "hz", "sine", "tone", "white noise", "pink noise", "brown noise", "asmr", "game", "cartoon",
     "horror", "scary", "creepy", "fake", "simulated", "foley", "mouth", "microphone test", "mic test", "gunshot",
     "gun", "shots", "fireworks", "phone", "mobile", "notification", "ringtone", "electronic", "glitch",
+    "motors", "outboard", "outboard-motors", "boats", "diving", "scuba", "snorkel", "snorkeling", "bubbles", "gutter",
+    "gutters", "house", "harbour", "harbor", "pier", "dock", "marina", "port",
 ]
 NEGATIONS = re.compile(r"(no|not|without|free of|free from|away from|absence of|zero|minimal|minimum|little|hardly any)\W+(?:\w+\W+){0,3}$")
 
@@ -341,7 +343,22 @@ def run(key, refresh=False, only=None):
         if only and scene_id not in only:
             scenes_out[scene_id] = old.get(scene_id, [])
             continue
-        existing = [it for it in old.get(scene_id, []) if os.path.exists(os.path.join(HERE, it["file"]))]
+        existing = []
+        for it in old.get(scene_id, []):
+            path = os.path.join(HERE, it["file"])
+            if not os.path.exists(path):
+                continue
+            # Only look for forbidden words here: the stored name and tags are shorter
+            # than the full description the recording was originally checked against.
+            text = " ".join([it.get("name") or "", " ".join(it.get("tags") or [])]).lower().replace("_", " ")
+            bad = banned_hit(text.replace("-", " ")) or banned_hit(text)
+            av = word_re(spec["avoid"]).search(text) if spec.get("avoid") else None
+            why = f"mentions '{bad}'" if bad else (f"wrong kind of sound ('{av.group(1)}')" if av else "")
+            if not why:
+                existing.append(it)
+            else:
+                print(f"   removing '{it.get('name')}' from {scene_id}: {why}")
+                os.remove(path)
         if len(existing) >= 3 and not refresh:
             print(f" ✓ {scene_id}: {len(existing)} recordings already downloaded")
             scenes_out[scene_id] = existing
