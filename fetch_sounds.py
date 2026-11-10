@@ -113,11 +113,13 @@ SCENES = {
         groups=[["peeper", "peepers", "pseudacris"], ["frog", "frogs", "bullfrog", "toad", "toads"]],
     ),
     "whales": dict(
-        queries=["humpback whale song", "humpback whale hydrophone", "whale song underwater", "megaptera"],
+        queries=["humpback whale song", "humpback whale hydrophone", "whale song underwater", "megaptera",
+                 "humpback whale", "whale song", "humpback song recording", "whales singing"],
         need=["humpback", "megaptera", "whale", "whales"],
         need2=["humpback", "megaptera", "hydrophone", "underwater", "song", "singing", "recording"],
         avoid=["toy", "alien", "monster", "creature", "spaceship", "ship", "boat", "sonar", "submarine"],
         min_dur=15,
+        max_dur=420,   # real humpback song recordings are often long
         prefer=["humpback", "megaptera", "hydrophone"],
     ),
     "meadow": dict(
@@ -241,7 +243,7 @@ def check(sound, spec):
         return False, f"licence not CC0/CC BY ({sound.get('license')})", 0
     if dur < spec.get("min_dur", 20):
         return False, f"too short ({dur:.0f} s)", 0
-    if dur > 240:
+    if dur > spec.get("max_dur", 240):
         return False, f"too long ({dur:.0f} s)", 0
     hit = banned_hit(text)
     if hit:
@@ -410,7 +412,7 @@ def search_scene(scene_id, spec, key, scenes_out):
         lic_filter = '(license:"Creative Commons 0" OR license:"Attribution")'
         for q in spec["queries"]:
             params = {"query": q, "fields": FIELDS, "page_size": 60,
-                      "filter": f"duration:[{spec.get('min_dur', 20)} TO 240] {lic_filter}"}
+                      "filter": f"duration:[{spec.get('min_dur', 20)} TO {spec.get('max_dur', 240)}] {lic_filter}"}
             try:
                 data = api_get("/search/text/", params, key)
             except urllib.error.HTTPError:

@@ -53,7 +53,7 @@
   // their volume can't be changed). Recordings are mixed down to mono to save
   // memory, and only the last few decoded ones are kept.
   const bufCache = new Map();
-  const BUF_KEEP = 3;
+  const BUF_KEEP = 2;   // the playing recording and the one fading in
   function getBuffer(file) {
     if (bufCache.has(file)) {
       const p = bufCache.get(file); bufCache.delete(file); bufCache.set(file, p);
