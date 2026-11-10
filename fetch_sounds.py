@@ -29,6 +29,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SOUNDS = os.path.join(HERE, "sounds")
@@ -300,16 +301,19 @@ def download(url, dest):
     print(f"     downloading {os.path.basename(dest)}")
     tmp = dest + ".part"
     req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=60) as r, open(tmp, "wb") as f:
-        while True:
-            chunk = r.read(65536)
-            if not chunk:
-                break
-            f.write(chunk)
-    if os.path.getsize(tmp) < 10000:
-        os.remove(tmp)
-        raise RuntimeError("file too small")
-    os.replace(tmp, dest)
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r, open(tmp, "wb") as f:
+            while True:
+                chunk = r.read(65536)
+                if not chunk:
+                    break
+                f.write(chunk)
+        if os.path.getsize(tmp) < 10000:
+            raise RuntimeError("file too small")
+        os.replace(tmp, dest)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
 
 
 def run(key, refresh=False, only=None):
@@ -326,7 +330,14 @@ def run(key, refresh=False, only=None):
     scenes_out, report = {}, ["# Freesound selection report", "",
                               f"Generated {datetime.datetime.now():%Y-%m-%d %H:%M}. Only CC0 and CC BY recordings; "
                               "checked by duration, name, tags and description.", ""]
+    started = time.time()
+    deadline = float(os.environ.get("QP_DEADLINE_MIN") or 0) * 60  # 0 = no limit
     for scene_id, spec in SCENES.items():
+        if deadline and time.time() - started > deadline:
+            print(f" … time is up for this run; {scene_id} and the scenes after it are left for the next run")
+            for rest in list(SCENES)[list(SCENES).index(scene_id):]:
+                scenes_out.setdefault(rest, [it for it in old.get(rest, []) if os.path.exists(os.path.join(HERE, it["file"]))])
+            break
         if only and scene_id not in only:
             scenes_out[scene_id] = old.get(scene_id, [])
             continue
@@ -407,27 +418,39 @@ def search_scene(scene_id, spec, key, scenes_out):
         picks = choose(ok, spec, used)
         folder = os.path.join(SOUNDS, scene_id)
         os.makedirs(folder, exist_ok=True)
-        items = []
+        # Freesound sends each file slowly, so download a scene's files at the same time.
+        jobs = []
         for s in picks:
-            lic, lic_url = licence(s["license"])
-            fname = f"{s['id']}-{slug(s['name'])}.mp3"
-            rel = f"sounds/{scene_id}/{fname}"
-            dest = os.path.join(HERE, rel)
             prev = (s.get("previews") or {}).get("preview-hq-mp3")
             if not prev:
                 continue
-            try:
-                if not os.path.exists(dest):
-                    download(prev, dest)
-            except Exception as e:
-                rejected.append((s, f"download failed: {e}"))
-                continue
-            items.append({
-                "file": rel, "id": s["id"], "name": s["name"], "author": s["username"],
-                "license": lic, "licenseUrl": lic_url, "url": s.get("url") or f"https://freesound.org/s/{s['id']}/",
-                "duration": round(float(s["duration"]), 1),
-                "tags": (s.get("tags") or [])[:12],
-            })
+            fname = f"{s['id']}-{slug(s['name'])}.mp3"
+            rel = f"sounds/{scene_id}/{fname}"
+            jobs.append((s, prev, rel, os.path.join(HERE, rel)))
+
+        def fetch(job):
+            s, prev, rel, dest = job
+            if not os.path.exists(dest):
+                download(prev, dest)
+            return job
+
+        items = []
+        with ThreadPoolExecutor(max_workers=5) as pool:
+            futures = [pool.submit(fetch, j) for j in jobs]
+            for job, fut in zip(jobs, futures):
+                s, prev, rel, dest = job
+                try:
+                    fut.result()
+                except Exception as e:
+                    rejected.append((s, f"download failed: {e}"))
+                    continue
+                lic, lic_url = licence(s["license"])
+                items.append({
+                    "file": rel, "id": s["id"], "name": s["name"], "author": s["username"],
+                    "license": lic, "licenseUrl": lic_url, "url": s.get("url") or f"https://freesound.org/s/{s['id']}/",
+                    "duration": round(float(s["duration"]), 1),
+                    "tags": (s.get("tags") or [])[:12],
+                })
         # tidy files we no longer use
         keep = {os.path.basename(i["file"]) for i in items}
         for fn in os.listdir(folder):

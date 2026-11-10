@@ -19,15 +19,16 @@ permissions:
 jobs:
   download:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Download and check recordings
-        timeout-minutes: 20
+        timeout-minutes: 45
         env:
+          QP_DEADLINE_MIN: "35"   # stop starting new scenes after 35 min; run again to finish
           FREESOUND_KEY: ${{ secrets.FREESOUND_KEY }}
         run: |
           if [ -z "$FREESOUND_KEY" ]; then
@@ -43,8 +44,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+          find sounds -name '*.part' -delete
           git add sounds
           if git diff --cached --quiet; then echo "No changes."; exit 0; fi
           git commit -m "Download nature recordings from Freesound"
-          git pull --rebase origin main
+          git pull --rebase --autostash origin main
           git push
