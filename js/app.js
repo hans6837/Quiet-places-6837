@@ -302,7 +302,16 @@
   // ------------------------------------------------------------ start screen notes
   function startNotes() {
     const notes = [];
-    if (!CFG.pexelsKey && !CFG.unsplashAccessKey) notes.push("No Pexels or Unsplash key yet — add them under <b>Settings → Photo keys</b>. Until then, photos come from Wikimedia Commons only.");
+    if (window.QP_KEYS.fromLink()) {
+      notes.push('<span id="link-key-msg">Key saved on this iPad — checking it with Unsplash…</span>');
+      window.QP_KEYS.testUnsplash().then(r => {
+        const el = document.getElementById("link-key-msg");
+        if (el) el.innerHTML = r === "ok" ? "✅ Unsplash key saved on this iPad and working."
+          : r === "rejected" ? "❌ Unsplash did not accept this key. Copy the Access Key again and use Settings → Photo keys."
+          : "Key saved on this iPad (could not check it right now).";
+      });
+    }
+    if (!CFG.pexelsKey && !CFG.unsplashAccessKey && !window.QP_KEYS.fromLink()) notes.push("No Pexels or Unsplash key yet — add them under <b>Settings → Photo keys</b>. Until then, photos come from Wikimedia Commons only.");
     if (!window.QP_SOUNDS) notes.push("No recordings downloaded yet — scenes will be silent. See the README: “Download the sounds”.");
     if (location.protocol === "file:") notes.push("Opened as a file. It works, but for matched volumes use the start script.");
     $("#start-notes").innerHTML = notes.map(n => `<li>${n}</li>`).join("");
@@ -343,6 +352,14 @@
       const ok = window.QP_KEYS.save({ pexelsKey: $("#key-pexels").value, unsplashAccessKey: $("#key-unsplash").value });
       $("#keys-msg").textContent = ok ? "Saved — restarting…" : "Could not save (private browsing?)";
       if (ok) setTimeout(() => location.reload(), 700);
+    });
+    $("#test-keys").addEventListener("click", async () => {
+      if ($("#key-unsplash").value.trim() !== (window.QP_KEYS.get().unsplashAccessKey || "")) {
+        $("#keys-msg").textContent = "Tap “Save keys” first."; return;
+      }
+      $("#keys-msg").textContent = "Checking…";
+      const r = await window.QP_KEYS.testUnsplash();
+      $("#keys-msg").textContent = r === "ok" ? "✅ Unsplash key works" : r === "rejected" ? "❌ Unsplash rejected this key" : r === "none" ? "No Unsplash key saved yet" : "Could not check right now";
     });
     $("#clear-cache").addEventListener("click", async () => { await PHOTOS.clearCache(); renderSettings(); });
     $("#btn-full").addEventListener("click", toggleFull);
