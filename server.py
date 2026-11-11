@@ -9,7 +9,7 @@ Quiet Places — tiny local server (Python 3.8+, no extra packages).
 What it does:
   * serves this folder on http://127.0.0.1:<port>/ (only reachable from this computer)
   * supports HTTP Range requests, so the audio player can start recordings mid-way
-  * /proxy/<pexels|unsplash|wikimedia>/... forwards photo-search API calls to
+  * /proxy/<pixabay|wikimedia>/... forwards video-search API calls to
     those three hosts only (adds a proper User-Agent for Wikimedia, passes
     rate-limit headers back to the app)
   * on first start: creates config.js from config.example.js, and downloads the
@@ -31,11 +31,10 @@ import webbrowser
 HERE = os.path.dirname(os.path.abspath(__file__))
 UA = "QuietPlaces/1.0 (personal relaxation app; local use)"
 UPSTREAM = {
-    "pexels": "https://api.pexels.com",
-    "unsplash": "https://api.unsplash.com",
+    "pixabay": "https://pixabay.com",
     "wikimedia": "https://commons.wikimedia.org",
 }
-# For automated tests only: point a source at a mock server, e.g. QP_UPSTREAM_PEXELS=http://127.0.0.1:9912
+# For automated tests only: point a source at a mock server, e.g. QP_UPSTREAM_PIXABAY=http://127.0.0.1:9912
 UPSTREAM = {k: os.environ.get("QP_UPSTREAM_" + k.upper(), v) for k, v in UPSTREAM.items()}
 FORWARD_REQ = ("authorization", "accept-version")
 FORWARD_RES = ("content-type", "x-ratelimit-limit", "x-ratelimit-remaining", "x-ratelimit-reset")

@@ -1,15 +1,15 @@
 # Quiet Places
 
 A relaxation app with 12 nature scenes (Sea, Forest and Animals). Every scene
-shows a new **real photo** fetched live from Pexels, Unsplash or Wikimedia
+plays **real nature video clips** fetched live from Pixabay or Wikimedia
 Commons, and plays **real nature recordings** from Freesound that match the
-photo: a loon photo comes with loon calls, a rocky coast with surf on rocks.
+video: a loon video comes with loon calls, a rocky coast with surf on rocks.
 
 ## On the iPad (web address)
 
 Open **https://hans6837.github.io/Quiet-places-6837/** in Safari, then
-**Share → Add to Home Screen → Add**. Tap **Settings → Photo keys**, paste your
-Pexels and Unsplash keys, and tap **Save keys**. They are stored on the iPad
+**Share → Add to Home Screen → Add**. Tap **Settings → Video key**, paste your
+free Pixabay key, and tap **Save key**. It is stored on the iPad
 only.
 
 ### One-time setup on GitHub (already done if the address works)
@@ -37,8 +37,7 @@ You need **Python 3** (free from python.org; Macs and most PCs already have it).
    copy `config.example.js` to `config.js`; the start script also does this the
    first time. Paste your keys between the quotes:
    ```js
-   pexelsKey: "…",
-   unsplashAccessKey: "…",   // the "Access Key", not the Secret key
+   pixabayKey: "…",          // free: https://pixabay.com/api/docs/ (shown when logged in)
    freesoundKey: "…",
    ```
 2. **Start it:**
@@ -56,7 +55,7 @@ To pick new recordings later, run `python3 server.py --sounds` (or
 `python3 fetch_sounds.py --refresh`).
 
 You can also double-click `index.html` to open it without the server. It still
-works, but volumes aren't matched between scenes and photos come straight
+works, but volumes aren't matched between scenes and videos come straight
 from the APIs, so the start script is the better way.
 
 ## Using it
@@ -67,37 +66,33 @@ from the APIs, so the start script is the better way.
 | **New scene** (or `N`) | jump to another scene in the category |
 | scene menu | choose a particular scene |
 | volume slider, **Sleep** | sleep timer: the sound and the screen fade out over the last 2 minutes, then it stops (tap to wake) |
-| **Settings** | change the photo every 30 s / 1 / 2 / 5 min, change the scene automatically, see the photo sources and API usage, clear the photo cache |
-| **Credits** | every recording with its author and licence, plus the photo on screen |
+| **Settings** | change the video every 30 s / 1 / 2 / 5 min, change the scene automatically, Pixabay key, see the video sources and API usage, clear saved videos |
+| **Credits** | every recording with its author and licence, plus the video on screen |
 | `Space` / `F` | pause / full screen |
 
-The controls hide after 4 seconds without mouse movement. The photographer and
-source stay visible in a corner, as the photo sites require.
+The controls hide after 4 seconds without mouse movement. The video's author and
+source stay visible in a corner.
 
 ## How it works
 
-**Photos** (`js/photos.js`)
-- Each scene has its own search terms (`js/scenes.js`). Every photo comes from
-  a random source, term and result page.
-- One search returns 30–40 results, which go into a pool for that scene, so
-  the app sends only a few API requests per hour.
-- The IDs of the last 500 shown photos are remembered and skipped.
-- Only landscape photos at least 1200 px wide are used. Photos whose
-  title or description mention people, buildings, text, boats, drawings and
-  similar are skipped. Animal scenes also need the animal named, for example
-  "loon" or *Gavia*.
-- Wikimedia photos must be CC0, public domain, CC BY or CC BY-SA.
-- The next photo is downloaded while the current one is on screen. Each photo
-  slowly zooms and pans, and photos crossfade over 3 seconds.
-- The last 30 photos shown are kept in the browser, spread across the scenes.
-  If a rate limit is hit or the internet drops, the app shows saved photos of
-  the *same* scene, so the sound still matches. If none are saved, it shows the
-  painted version of the scene.
-- Rate limits: Pexels allows 200 requests/hour and 20,000/month, and the app
-  stops at 150/hour. Unsplash allows 50/hour for new ("demo") apps, and the app
-  stops at 40. Wikimedia has no fixed limit, and the app stops at 120/hour.
-  If a site answers "too many requests", that source pauses for an hour while
-  the others carry on.
+**Videos** (`js/videos.js`)
+- Real nature video clips from **Pixabay** (Pixabay Content License, free to
+  use; needs a free key) and **Wikimedia Commons** (CC0, public domain, CC BY,
+  CC BY-SA only; no key). No photos.
+- Each scene has its own search terms (`js/scenes.js`). Every clip comes from a
+  random source, term and result page; the IDs of the last 400 clips shown are
+  remembered and skipped.
+- Only landscape clips of at least 6 seconds are used. Clips whose tags or
+  title mention people, buildings, boats, text, animation and similar are
+  skipped. Animal scenes also need the animal named (e.g. "loon").
+- Clips play muted (the sound is the matched Freesound recording), full screen,
+  looping until the next one. The next clip loads in the background, and clips
+  crossfade over 3 seconds.
+- Up to 12 recent clips are saved in the browser, spread across the scenes. If
+  a limit is hit or the internet drops, a saved clip of the *same* scene plays,
+  so the sound still matches. With nothing saved, the painted scene is shown.
+- Limits: Pixabay allows 100 requests/minute and asks that searches be cached
+  for 24 hours (the app does both); Wikimedia is capped at 120/hour.
 
 **Sounds** (`fetch_sounds.py`, `js/audio.js`)
 - Each scene gets 3 to 5 recordings from Freesound, CC0 or CC BY only.
@@ -134,7 +129,7 @@ tests/                         python3 -m unittest discover tests
 
 - **Scenes are silent:** check that `freesoundKey` is set in `config.js`, then
   run `python3 server.py --sounds` and read what it prints.
-- **Only painted scenes:** open **Settings → Photo sources**. "No key" means
+- **Only painted scenes:** open **Settings → Video sources**. "No key" means
   that key is missing in `config.js`. "Paused" means a rate limit was reached,
   and the source resumes by itself.
 - **Port already in use:** the server picks the next free port and prints the

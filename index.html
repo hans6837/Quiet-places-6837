@@ -25,7 +25,7 @@
 <!-- Start screen -->
 <div id="start">
   <h1>Quiet Places</h1>
-  <p class="sub">Real photos and real recordings from twelve quiet places.</p>
+  <p class="sub">Real nature videos and real recordings from twelve quiet places.</p>
   <button id="begin" class="big">Begin</button>
   <ul id="start-notes"></ul>
 </div>
@@ -60,7 +60,7 @@
   <span id="status"></span>
 </footer>
 
-<!-- Discreet credit (always visible: required by Pexels/Unsplash/Wikimedia terms) -->
+<!-- Discreet credit (always visible: Wikimedia licences require it; Pixabay asks for it) -->
 <div id="credit">
   <div id="photo-credit"></div>
   <div id="sound-credit"></div>
@@ -70,7 +70,7 @@
 <section id="settings" class="panel" hidden>
   <button class="close" aria-label="Close">×</button>
   <h2>Settings</h2>
-  <label class="row">Change photo every
+  <label class="row">Change video every
     <select id="photo-interval">
       <option value="30">30 seconds</option><option value="60">1 minute</option>
       <option value="120">2 minutes</option><option value="300">5 minutes</option>
@@ -82,15 +82,14 @@
       <option value="15">every 15 minutes</option><option value="30">every 30 minutes</option><option value="60">every hour</option>
     </select>
   </label>
-  <h3>Photo keys</h3>
-  <p class="hint">Paste your keys once; they are saved on this device only.</p>
-  <label class="row">Pexels <input id="key-pexels" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Pexels API key"></label>
-  <label class="row">Unsplash <input id="key-unsplash" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Unsplash Access Key"></label>
-  <p><button id="save-keys" class="small">Save keys</button> <button id="test-keys" class="small ghost">Test Unsplash key</button> <span id="keys-msg" class="hint"></span></p>
-  <h3>Photo sources</h3>
+  <h3>Video key</h3>
+  <p class="hint">A free Pixabay key gives many more videos. It is saved on this device only.</p>
+  <label class="row">Pixabay <input id="key-pixabay" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Pixabay API key"></label>
+  <p><button id="save-keys" class="small">Save key</button> <button id="test-keys" class="small ghost">Test key</button> <span id="keys-msg" class="hint"></span></p>
+  <h3>Video sources</h3>
   <table id="source-status"></table>
-  <p class="hint">Photos are cached (the last 30) so the app keeps working offline.</p>
-  <p><span id="cache-count"></span> <button id="clear-cache" class="ghost small">Clear photo cache</button></p>
+  <p class="hint">Recent videos are saved (up to 12, spread over the scenes) so the app keeps working offline.</p>
+  <p><span id="cache-count"></span> <button id="clear-cache" class="ghost small">Clear saved videos</button></p>
   <h3>Sounds</h3>
   <div id="sound-status"></div>
 </section>
@@ -99,13 +98,12 @@
 <section id="credits" class="panel wide" hidden>
   <button class="close" aria-label="Close">×</button>
   <h2>Credits</h2>
-  <h3>Photo on screen now</h3>
+  <h3>Video on screen now</h3>
   <p id="credits-photo"></p>
-  <p class="hint">Photos come live from <a href="https://www.pexels.com" target="_blank" rel="noopener">Pexels</a> (Pexels License),
-    <a href="https://unsplash.com/?utm_source=quiet_places&utm_medium=referral" target="_blank" rel="noopener">Unsplash</a> (Unsplash License)
+  <p class="hint">Videos come live from <a href="https://pixabay.com/videos/" target="_blank" rel="noopener">Pixabay</a> (Pixabay Content License, free to use)
     and <a href="https://commons.wikimedia.org" target="_blank" rel="noopener">Wikimedia Commons</a> (CC0, public domain, CC BY, CC BY-SA only).
-    The photographer and source of every photo are shown in the lower-right corner while it is on screen.
-    The painted fallback scenes were made for this app.</p>
+    The author and source of every video are shown in the lower-right corner while it plays.
+    The painted scenes (shown only when no video can load) were made for this app.</p>
   <h3>Sounds</h3>
   <p class="hint">All recordings are from <a href="https://freesound.org" target="_blank" rel="noopener">Freesound</a>, licensed CC0 or CC BY.</p>
   <div id="credits-sounds"></div>
@@ -122,7 +120,7 @@
 <script src="sounds/manifest.js"></script>
 <script src="js/scenes.js"></script>
 <script src="js/painted.js"></script>
-<script src="js/photos.js"></script>
+<script src="js/videos.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/app.js"></script>
 </body>

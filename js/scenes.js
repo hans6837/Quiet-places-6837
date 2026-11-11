@@ -1,13 +1,13 @@
 /*
  * The 12 scenes. Each one ties together:
- *  - photo search terms (what the camera should show)
+ *  - video search terms (what the camera should show)
  *  - the sound folder in /sounds (what you hear)
- *  - a painted fallback (used when no photo can be loaded)
+ *  - a painted fallback (used only when no video can be loaded)
  *
- * Photo terms are chosen to match exactly what the recordings contain, so a
- * loon photo always comes with loon calls, surf on rocks with a rocky coast…
+ * Search terms are chosen to match exactly what the recordings contain, so a
+ * loon video always comes with loon calls, surf on rocks with a rocky coast…
  *
- * mustMatch (optional): for animal scenes, the photo's title/description
+ * mustMatch (optional): for animal scenes, the video's title/tags
  * must mention the animal, so a "loon swimming" search can't show a duck.
  */
 window.QP_SCENES = [

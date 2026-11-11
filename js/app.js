@@ -1,12 +1,12 @@
 /*
- * Quiet Places — app controller: scenes, photo rotation, controls, timers.
+ * Quiet Places — app controller: scenes, video rotation, controls, timers.
  */
 (function () {
   "use strict";
 
   const $ = s => document.querySelector(s);
   const SCENES = window.QP_SCENES;
-  const PHOTOS = window.QP_PHOTOS;
+  const VIDEOS = window.QP_VIDEOS;
   const AUDIO = window.QP_AUDIO;
   const CFG = window.QUIET_PLACES_CONFIG || null;
 
@@ -21,7 +21,7 @@
     volume: load("volume", 80),
     playing: false,
     token: 0,
-    shownPhoto: null,
+    shownClip: null,
     photoTimer: null,
     autoTimer: null,
     sleepEnd: 0,
@@ -61,46 +61,58 @@
     if (!state.playing) img._anim.pause();
   }
 
-  function display(photo, scene) {
+  // Each layer holds either a playing video clip or the painted fallback image.
+  function clearLayer(layer) {
+    const v = layer.querySelector("video");
+    if (v) { v._showing = false; try { v.pause(); } catch (e) {} v.removeAttribute("src"); v.load(); v.remove(); }
+  }
+  function display(clip, scene) {
     const back = 1 - front;
     const layer = layers[back], img = layer.querySelector("img");
-    const old = layers[front].querySelector("img");
-    const oldPhoto = state.shownPhoto;
-    img.src = photo ? photo.objectUrl : painted(scene.id);
-    kenBurns(img, state.photoInterval + 6);
+    const oldLayer = layers[front];
+    const oldClip = state.shownClip;
+    clearLayer(layer);
+    if (clip) {
+      const el = clip.el;
+      el.className = "clip"; el._showing = true;
+      img.style.display = "none";
+      layer.appendChild(el);
+      try { el.currentTime = 0; } catch (e) { /* ignore */ }
+      if (state.playing) { const p = el.play(); if (p && p.catch) p.catch(() => {}); }
+    } else {
+      img.style.display = "";
+      img.src = painted(scene.id);
+      kenBurns(img, state.photoInterval + 6);
+    }
     layer.classList.add("visible");
-    layers[front].classList.remove("visible");
+    oldLayer.classList.remove("visible");
     front = back;
-    state.shownPhoto = photo;
-    if (photo) PHOTOS.shown(photo);
-    setTimeout(() => {
-      if (oldPhoto && oldPhoto.isBlob && old.src === oldPhoto.objectUrl) { URL.revokeObjectURL(oldPhoto.objectUrl); }
-    }, 4000);
-    renderPhotoCredit(photo, scene);
+    state.shownClip = clip;
+    if (clip) VIDEOS.shown(clip);
+    setTimeout(() => {                      // after the 3 s crossfade: free the old clip
+      if (layers[front] !== oldLayer) clearLayer(oldLayer);
+      if (oldClip && oldClip.objectUrl) URL.revokeObjectURL(oldClip.objectUrl);
+    }, 3500);
+    renderCredit(clip, scene);
   }
 
-  function renderPhotoCredit(photo, scene) {
+  function renderCredit(clip, scene) {
     let html;
-    if (!photo) html = `Painted scene · ${esc(scene.name)}`;
-    else if (photo.source === "unsplash")
-      html = `Photo by ${link(photo.authorUrl, photo.author)} on ${link("https://unsplash.com/?utm_source=quiet_places&utm_medium=referral", "Unsplash")}`;
-    else if (photo.source === "pexels")
-      html = `Photo by ${link(photo.authorUrl, photo.author)} on ${link(photo.pageUrl, "Pexels")}`;
+    if (!clip) html = `Painted scene · ${esc(scene.name)}`;
+    else if (clip.source === "pixabay")
+      html = `Video by ${link(clip.authorUrl, clip.author)} on ${link(clip.pageUrl, "Pixabay")}`;
     else
-      html = `${link(photo.pageUrl, photo.author)} · ${link(photo.licenseUrl, photo.license)} · ${link(photo.pageUrl, "Wikimedia Commons")}`;
-    if (photo && photo.fromCache) html += ` <span title="Shown from the offline cache">· saved</span>`;
+      html = `Video: ${link(clip.pageUrl, clip.author)} · ${link(clip.licenseUrl, clip.license)} · ${link(clip.pageUrl, "Wikimedia Commons")}`;
+    if (clip && clip.fromCache) html += ` <span title="Played from the offline copy">· saved</span>`;
     $("#photo-credit").innerHTML = html;
     $("#credits-photo").innerHTML = html;
-    if (!photo) setStatus(PHOTO_HELP());
-    else setStatus(photo.fromCache ? "Offline or rate-limited — showing saved photos" : "");
+    if (!clip) setStatus(VIDEO_HELP());
+    else setStatus(clip.fromCache ? "Offline or rate-limited — playing saved videos" : "");
   }
 
-  function PHOTO_HELP() {
-    const st = PHOTOS.status();
-    const any = Object.values(st).some(s => s.enabled);
-    if (!any) return "No photo sources set up — showing the painted scene";
+  function VIDEO_HELP() {
     if (navigator.onLine === false) return "Offline — showing the painted scene";
-    return "No photo available right now — showing the painted scene";
+    return "No video available right now — showing the painted scene";
   }
 
   function setStatus(t) { $("#status").textContent = t || ""; }
@@ -114,14 +126,15 @@
     const my = ++state.token;
     state.sceneId = id; save("scene", id);
     clearTimeout(state.photoTimer);
+    if (state.prepared) { const old = state.prepared; state.prepared = null; old.then(release); }
     renderSceneLabels();
-    setStatus("Finding a photo…");
+    setStatus("Finding a video…");
 
-    const firstPhoto = PHOTOS.next(scene, null);
+    const firstPhoto = VIDEOS.next(scene, null);
     const quick = await withTimeout(firstPhoto, 9000);
     if (my !== state.token) return;
     if (quick === undefined) {
-      // Still loading: show the painted scene now, swap in the photo when ready.
+      // Still loading: show the painted scene now, swap in the video when ready.
       display(null, scene);
       startSceneAudio(scene);
       firstPhoto.then(p => {
@@ -143,18 +156,27 @@
     if (!state.playing) AUDIO.pause();
   }
 
+  // Stop a preloaded clip that will not be shown (frees memory and data).
+  function release(clip) {
+    if (!clip || clip === state.shownClip || !clip.el) return;
+    clip.el._showing = false; clip.el.removeAttribute("src"); clip.el.load();
+    if (clip.objectUrl) URL.revokeObjectURL(clip.objectUrl);
+  }
+
   function schedulePhotos(my, scene) {
     clearTimeout(state.photoTimer);
-    const currentKey = state.shownPhoto && state.shownPhoto.key;
-    const prepared = PHOTOS.next(scene, currentKey); // preload while the current one shows
+    const currentKey = state.shownClip && state.shownClip.key;
+    const prepared = VIDEOS.next(scene, currentKey); // preload while the current one plays
+    state.prepared = prepared;
     const startedAt = Date.now();
     const wait = () => {
       if (my !== state.token) return;
       if (!state.playing) { state.photoTimer = setTimeout(wait, 1000); return; }
       prepared.then(p => {
-        if (my !== state.token) return;
-        // If nothing new could be loaded, keep the current photo (or painted scene).
-        if (p && (!state.shownPhoto || p.key !== state.shownPhoto.key)) display(p, scene);
+        if (my !== state.token) { release(p); return; }
+        // If nothing new could be loaded, keep the current clip (or painted scene).
+        if (p && (!state.shownClip || p.key !== state.shownClip.key)) display(p, scene);
+        else release(p);
         schedulePhotos(my, scene);
       });
     };
@@ -198,7 +220,11 @@
   function setPlaying(on) {
     state.playing = on;
     $("#btn-play").textContent = on ? "❚❚" : "▶";
-    layers.forEach(l => { const a = l.querySelector("img")._anim; if (a) on ? a.play() : a.pause(); });
+    layers.forEach(l => {
+      const a = l.querySelector("img")._anim; if (a) on ? a.play() : a.pause();
+      const v = l.querySelector("video");
+      if (v && l.classList.contains("visible")) { if (on) { const p = v.play(); if (p && p.catch) p.catch(() => {}); } else v.pause(); }
+    });
     if (on) AUDIO.resume(); else AUDIO.pause();
     poke();
   }
@@ -265,19 +291,19 @@
     const nearest = choices.reduce((a, b) => Math.abs(b - state.photoInterval) < Math.abs(a - state.photoInterval) ? b : a);
     $("#photo-interval").value = String(nearest);
     const k = window.QP_KEYS.get();
-    $("#key-pexels").value = k.pexelsKey; $("#key-unsplash").value = k.unsplashAccessKey;
+    $("#key-pixabay").value = k.pixabayKey;
     $("#auto-scene").value = String(state.autoScene);
-    const st = PHOTOS.status();
+    const st = VIDEOS.status();
     $("#source-status").innerHTML = Object.values(st).map(s => {
       let txt;
-      if (!s.enabled) txt = `<span class="warn">no key in config.js</span>`;
+      if (!s.enabled) txt = `<span class="warn">no key yet</span>`;
       else if (s.pausedUntil) txt = `<span class="warn">paused until ${new Date(s.pausedUntil).toLocaleTimeString()}</span>`;
       else if (s.failures >= 4) txt = `<span class="bad">not responding</span>`;
       else txt = `<span class="ok">on</span>`;
-      return `<tr><td>${esc(s.name)}</td><td>${txt}</td><td class="hint">${s.used}/${s.limit} requests this hour</td></tr>`;
+      return `<tr><td>${esc(s.name)}</td><td>${txt}</td><td class="hint">${s.used}/${s.limit} requests this ${s.per}</td></tr>`;
     }).join("");
-    const cached = await PHOTOS.cacheAll();
-    $("#cache-count").textContent = `${cached.length} photo${cached.length === 1 ? "" : "s"} saved for offline use.`;
+    const cached = await VIDEOS.cacheAll();
+    $("#cache-count").textContent = `${cached.length} video${cached.length === 1 ? "" : "s"} saved for offline use.`;
     const man = window.QP_SOUNDS;
     if (!man) {
       $("#sound-status").innerHTML = `<p class="warn">No recordings downloaded yet. See the README: “Download the sounds”.</p>`;
@@ -303,15 +329,15 @@
   function startNotes() {
     const notes = [];
     if (window.QP_KEYS.fromLink()) {
-      notes.push('<span id="link-key-msg">Key saved on this iPad — checking it with Unsplash…</span>');
-      window.QP_KEYS.testUnsplash().then(r => {
+      notes.push('<span id="link-key-msg">Key saved on this iPad — checking it with Pixabay…</span>');
+      window.QP_KEYS.testPixabay().then(r => {
         const el = document.getElementById("link-key-msg");
-        if (el) el.innerHTML = r === "ok" ? "✅ Unsplash key saved on this iPad and working."
-          : r === "rejected" ? "❌ Unsplash did not accept this key. Copy the Access Key again and use Settings → Photo keys."
+        if (el) el.innerHTML = r === "ok" ? "✅ Pixabay key saved on this iPad and working."
+          : r === "rejected" ? "❌ Pixabay did not accept this key. Copy it again and use Settings → Video key."
           : "Key saved on this iPad (could not check it right now).";
       });
     }
-    if (!CFG.pexelsKey && !CFG.unsplashAccessKey && !window.QP_KEYS.fromLink()) notes.push("No Pexels or Unsplash key yet — add them under <b>Settings → Photo keys</b>. Until then, photos come from Wikimedia Commons only.");
+    if (!CFG.pixabayKey && !window.QP_KEYS.fromLink()) notes.push("No Pixabay key yet — add it under <b>Settings → Video key</b> for many more videos. Until then, videos come from Wikimedia Commons only.");
     if (!window.QP_SOUNDS) notes.push("No recordings downloaded yet — scenes will be silent. See the README: “Download the sounds”.");
     if (location.protocol === "file:") notes.push("Opened as a file. It works, but for matched volumes use the start script.");
     $("#start-notes").innerHTML = notes.map(n => `<li>${n}</li>`).join("");
@@ -349,19 +375,19 @@
     });
     $("#auto-scene").addEventListener("change", e => { state.autoScene = +e.target.value; save("autoScene", state.autoScene); resetAutoScene(); });
     $("#save-keys").addEventListener("click", () => {
-      const ok = window.QP_KEYS.save({ pexelsKey: $("#key-pexels").value, unsplashAccessKey: $("#key-unsplash").value });
+      const ok = window.QP_KEYS.save({ pixabayKey: $("#key-pixabay").value });
       $("#keys-msg").textContent = ok ? "Saved — restarting…" : "Could not save (private browsing?)";
       if (ok) setTimeout(() => location.reload(), 700);
     });
     $("#test-keys").addEventListener("click", async () => {
-      if ($("#key-unsplash").value.trim() !== (window.QP_KEYS.get().unsplashAccessKey || "")) {
-        $("#keys-msg").textContent = "Tap “Save keys” first."; return;
+      if ($("#key-pixabay").value.replace(/\s+/g, "") !== (window.QP_KEYS.get().pixabayKey || "")) {
+        $("#keys-msg").textContent = "Tap “Save key” first."; return;
       }
       $("#keys-msg").textContent = "Checking…";
-      const r = await window.QP_KEYS.testUnsplash();
-      $("#keys-msg").textContent = r === "ok" ? "✅ Unsplash key works" : r === "rejected" ? "❌ Unsplash rejected this key" : r === "none" ? "No Unsplash key saved yet" : "Could not check right now";
+      const r = await window.QP_KEYS.testPixabay();
+      $("#keys-msg").textContent = r === "ok" ? "✅ Pixabay key works" : r === "rejected" ? "❌ Pixabay rejected this key" : r === "none" ? "No Pixabay key saved yet" : "Could not check right now";
     });
-    $("#clear-cache").addEventListener("click", async () => { await PHOTOS.clearCache(); renderSettings(); });
+    $("#clear-cache").addEventListener("click", async () => { await VIDEOS.clearCache(); renderSettings(); });
     $("#btn-full").addEventListener("click", toggleFull);
     $("#sleep-screen").addEventListener("click", wake);
     AUDIO.onChange(item => {
