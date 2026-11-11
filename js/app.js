@@ -66,6 +66,32 @@
     const v = layer.querySelector("video");
     if (v) { v._showing = false; try { v.pause(); } catch (e) {} v.removeAttribute("src"); v.load(); v.remove(); }
   }
+  // Start a clip and make sure it really moves. iPads in Low Power Mode (and
+  // sometimes otherwise) refuse to start videos that were not started by a
+  // tap: then the next tap anywhere on the screen starts it.
+  let needsTap = false;
+  function startVideo(el) {
+    const p = el.play();
+    if (p && p.catch) p.catch(() => {});
+    const t0 = el.currentTime;
+    setTimeout(() => {
+      if (!el._showing || !state.playing) return;
+      if (el.paused || el.currentTime === t0) {
+        needsTap = true;
+        setStatus("Tap the screen to start the video (the iPad paused it — e.g. Low Power Mode)");
+        poke();
+      }
+    }, 2500);
+  }
+  function kickVideo() {
+    const v = document.querySelector(".layer.visible video");
+    if (!v || !state.playing) return;
+    if (v.paused || needsTap) {
+      const p = v.play();
+      if (p && p.then) p.then(() => { needsTap = false; if (/Tap the screen to start/.test($("#status").textContent)) setStatus(""); }).catch(() => {});
+    }
+  }
+
   function display(clip, scene) {
     const back = 1 - front;
     const layer = layers[back], img = layer.querySelector("img");
@@ -78,7 +104,7 @@
       img.style.display = "none";
       layer.appendChild(el);
       try { el.currentTime = 0; } catch (e) { /* ignore */ }
-      if (state.playing) { const p = el.play(); if (p && p.catch) p.catch(() => {}); }
+      if (state.playing) startVideo(el);
     } else {
       img.style.display = "";
       img.src = painted(scene.id);
@@ -223,7 +249,7 @@
     layers.forEach(l => {
       const a = l.querySelector("img")._anim; if (a) on ? a.play() : a.pause();
       const v = l.querySelector("video");
-      if (v && l.classList.contains("visible")) { if (on) { const p = v.play(); if (p && p.catch) p.catch(() => {}); } else v.pause(); }
+      if (v && l.classList.contains("visible")) { if (on) startVideo(v); else v.pause(); }
     });
     if (on) AUDIO.resume(); else AUDIO.pause();
     poke();
@@ -395,6 +421,8 @@
     });
 
     ["mousemove", "mousedown", "touchstart", "keydown", "wheel"].forEach(ev => document.addEventListener(ev, poke, { passive: true }));
+    // Any tap can start a video the iPad refused to start by itself.
+    ["touchend", "click"].forEach(ev => document.addEventListener(ev, kickVideo, { passive: true }));
     document.addEventListener("keydown", e => {
       if (e.target.matches("input, select")) return;
       if (document.body.classList.contains("not-started")) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("#begin").click(); } return; }

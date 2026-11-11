@@ -17,6 +17,7 @@ window.QP_SCENES = [
     hear: "Waves rolling onto sand",
     terms: ["sunset beach waves", "ocean shore golden hour", "sunset sea waves sand", "beach waves evening light"],
     wikiTerms: ["sunset beach waves", "beach sunset sea"],
+    mustMatch: /\b(sunsets?|sunrise|golden hour|dusk|evening|beach|sand|shore)\b/i,
     paint: "sunsetBeach"
   },
   {
@@ -24,6 +25,7 @@ window.QP_SCENES = [
     hear: "Water lapping on a quiet shore at night",
     terms: ["moonlight ocean night", "moon over sea", "moonlit beach", "full moon sea reflection"],
     wikiTerms: ["moon over sea", "moonlight sea"],
+    mustMatch: /\b(moon|moonlight|moonlit|night)\b/i,
     paint: "moonlitShore"
   },
   {
@@ -31,6 +33,7 @@ window.QP_SCENES = [
     hear: "Surf crashing on rocks",
     terms: ["waves crashing rocks", "rocky coastline surf", "sea waves rocks spray", "rugged coast waves"],
     wikiTerms: ["waves crashing rocks", "rocky coast surf"],
+    mustMatch: /\b(rocks?|rocky|cliffs?|crags?|boulders?|reef)\b/i,
     paint: "rockyCoast"
   },
   {
@@ -38,6 +41,7 @@ window.QP_SCENES = [
     hear: "Gentle lapping in shallow water",
     terms: ["calm tropical lagoon", "turquoise shallow water beach", "clear lagoon water", "tropical beach calm sea"],
     wikiTerms: ["lagoon turquoise", "tropical lagoon"],
+    mustMatch: /\b(lagoon|turquoise|tropical|shallow|clear water|atoll|caribbean|maldives)\b/i,
     paint: "lagoon"
   },
   // ---------------------------------------------------------------- Forest
@@ -46,6 +50,7 @@ window.QP_SCENES = [
     hear: "Wind in the pines with birdsong",
     terms: ["misty pine forest morning", "sun rays forest", "pine forest sunlight", "foggy conifer forest"],
     wikiTerms: ["pine forest morning mist", "sun rays forest"],
+    mustMatch: /\b(pines?|conifers?|spruce|fir|forest|woods|trees)\b/i,
     paint: "morningPines"
   },
   {
@@ -53,6 +58,7 @@ window.QP_SCENES = [
     hear: "A stream over stones",
     terms: ["forest creek stones", "woodland stream", "mossy stream forest", "brook in forest"],
     wikiTerms: ["forest creek", "woodland stream"],
+    mustMatch: /\b(streams?|creeks?|brooks?|rivulet|river|waterfall|rapids)\b/i,
     paint: "forestStream"
   },
   {
@@ -60,6 +66,7 @@ window.QP_SCENES = [
     hear: "Rain falling on leaves",
     terms: ["rain forest leaves", "rainy woods", "raindrops green leaves", "rain in the forest"],
     wikiTerms: ["rain forest leaves", "rainy forest"],
+    mustMatch: /\b(rain|rainy|raindrops?|drops?|drizzle|wet)\b/i,
     paint: "forestRain"
   },
   {
@@ -67,6 +74,7 @@ window.QP_SCENES = [
     hear: "Crickets and an owl at night",
     terms: ["forest at night moon", "fireflies forest", "night forest stars", "moonlit woods"],
     wikiTerms: ["forest night moon", "fireflies forest"],
+    mustMatch: /\b(night|moon|moonlight|fireflies|firefly|dark|stars?)\b/i,
     paint: "forestNight"
   },
   // ---------------------------------------------------------------- Animals
