@@ -41,7 +41,13 @@
     "countdown", "green ?screen", "chroma", "overlay", "particles?", "abstract", "loop background", "museum",
     "zoo", "aquarium", "captive", "dead", "carcass", "stranded", "wedding", "yoga", "drone shot of city",
     "screenshot", "collage", "timelapse city", "food", "dish", "pet", "dog", "cat", "aerial city", "news",
-    "interview", "lecture", "presentation", "documentary"
+    "interview", "lecture", "presentation", "documentary", "fire", "fires", "burn", "burning", "prescribed",
+    "wildfire", "smoke", "logging", "loggers?", "trucks?", "tractors?", "machines?", "machinery", "construction", "vlog",
+    "report", "training", "utv", "atv", "tram", "trains?", "railway", "typhoon", "hurricane", "flood", "flooding",
+    "tsunami", "protest", "chip", "quantum", "sonification", "horses?", "cattle", "cows?", "sheep", "farm", "ranch",
+    "barrier", "dam", "camera trap", "trail ?cam", "webcam", "screen recording", "slideshow", "slide show",
+    "photo", "photos", "photograph", "still image", "time series", "trailers?", "movies?", "episode", "tv",
+    "television", "songs?-\\d+", "full tune", "music video", "lyrics", "karaoke", "sound of", "audio", "podcast", "spectrogram"
   ].join("|") + ")\\b", "i");
 
   // ------------------------------------------------------------ storage
@@ -102,7 +108,9 @@
     const to = timeout(15000);
     noteCall(src);
     let res;
-    try { res = await fetch(url, { signal: to.signal }); } finally { to.done(); }
+    // Wikimedia asks every client to identify itself (browsers: Api-User-Agent).
+    const headers = src === "wikimedia" && !useProxy ? { "Api-User-Agent": "QuietPlaces/1.0 (https://github.com/hans6837/Quiet-places-6837)" } : {};
+    try { res = await fetch(url, { signal: to.signal, headers }); } finally { to.done(); }
     if (res.status === 429) { block(src, Date.now() + HOUR, "HTTP 429 Too Many Requests"); throw new Error(`${src}: rate limited`); }
     if (res.status === 400 || res.status === 401 || res.status === 403) {
       if (src === "pixabay") { block(src, Date.now() + 6 * HOUR, `HTTP ${res.status} – check the Pixabay key`); throw new Error("pixabay: key rejected"); }
@@ -126,6 +134,65 @@
   const probe = document.createElement("video");
   const canPlay = type => !!(type && probe.canPlayType(type).replace(/no/, ""));
 
+  // Choose a version no bigger than full HD: 4K files (often 50-100 MB)
+  // stall on Wi-Fi and are no sharper on an iPad.
+  function pickRendition(v) {
+    const list = ["large", "medium", "small", "tiny"].map(k => v[k]).filter(r => r && r.url && r.width);
+    const fits = list.filter(r => r.width <= 1920);
+    const best = fits.sort((a, b) => b.width - a.width)[0] || list.sort((a, b) => a.width - b.width)[0];
+    return best || null;
+  }
+  function mapPixabay(data) {
+    return (data.hits || []).map(h => {
+      const v = h.videos || {};
+      const pick = pickRendition(v);
+      const small = v.small && v.small.url ? v.small : (v.tiny && v.tiny.url ? v.tiny : null);
+      if (!pick) return null;
+      return {
+        key: "pixabay:" + h.id, source: "pixabay", sourceName: "Pixabay",
+        url: pick.url, cacheUrl: small && small.url, width: pick.width, height: pick.height, duration: h.duration,
+        text: [h.tags, (h.pageURL || "").split("/videos/")[1] || ""].join(" ").replace(/[-/,]/g, " "),
+        topic: [h.tags, ((h.pageURL || "").split("/videos/")[1] || "").replace(/-\d+\/?$/, "")].join(" ").replace(/[-/,]/g, " "),
+        title: h.tags || "",
+        author: h.user, authorUrl: h.user && h.user_id ? `https://pixabay.com/users/${encodeURIComponent(h.user)}-${h.user_id}/` : h.pageURL,
+        pageUrl: h.pageURL, license: "Pixabay Content License", licenseUrl: "https://pixabay.com/service/license-summary/"
+      };
+    }).filter(Boolean);
+  }
+  function mapWikimedia(data) {
+    const out = [];
+    for (const pg of Object.values((data.query && data.query.pages) || {})) {
+      const vi = pg.videoinfo && pg.videoinfo[0];
+      if (!vi) continue;
+      const md = vi.extmetadata || {};
+      const lic = stripHtml(md.LicenseShortName && md.LicenseShortName.value);
+      if (!/^(cc0|cc[- ]?zero|public domain|pd\b|cc[- ]by(-sa)?\b)/i.test(lic) || /\b(nc|nd)\b/i.test(lic)) continue;
+      // Skip "videos" that are really a still picture with sound: they are
+      // tiny for their length (real footage needs far more data per second).
+      if (vi.size && vi.duration && vi.size / vi.duration < 60000) continue;
+      // Choose a playable version around 720p (derivatives are Commons' transcodes).
+      const options = (vi.derivatives || []).filter(d => d.src && d.width && canPlay(d.type))
+        .sort((a, b) => Math.abs(a.height - 720) - Math.abs(b.height - 720));
+      let chosen = options[0];
+      if (!chosen && canPlay(vi.mime)) chosen = { src: vi.url, width: vi.width, height: vi.height };
+      if (!chosen) continue;
+      const smallest = options.slice().sort((a, b) => a.height - b.height).find(d => d.height >= 360);
+      const title = pg.title.replace(/^File:/, "").replace(/\.[a-z0-9]+$/i, "").replace(/_/g, " ");
+      out.push({
+        key: "wikimedia:" + pg.pageid, source: "wikimedia", sourceName: "Wikimedia Commons",
+        url: chosen.src, cacheUrl: smallest && smallest.src, width: chosen.width || vi.width, height: chosen.height || vi.height,
+        duration: vi.duration,
+        text: [title, stripHtml(md.ObjectName && md.ObjectName.value), stripHtml(md.ImageDescription && md.ImageDescription.value).slice(0, 400),
+          stripHtml(md.Categories && md.Categories.value).replace(/\|/g, " ")].join(" "),
+        topic: [title, stripHtml(md.ObjectName && md.ObjectName.value)].join(" "),
+        title,
+        author: stripHtml(md.Artist && md.Artist.value).slice(0, 80) || "Unknown author", authorUrl: vi.descriptionurl,
+        pageUrl: vi.descriptionurl, license: lic, licenseUrl: md.LicenseUrl && md.LicenseUrl.value
+      });
+    }
+    return out;
+  }
+
   const SOURCES = {
     pixabay: {
       name: "Pixabay",
@@ -133,25 +200,13 @@
       async search(scene, term) {
         const page = pickPage("pixabay", term, 5);
         const q = new URLSearchParams({ key: CFG.pixabayKey, q: term, video_type: "film", safesearch: "true",
-          per_page: "40", page: String(page), order: Math.random() < 0.5 ? "popular" : "latest" });
-        const ck = "pixabay|" + term + "|" + page + "|" + q.get("order");
+          per_page: "40", page: String(page), order: Math.random() < 0.7 ? "popular" : "latest" });
+        if (scene.pixabayCategory) q.set("category", scene.pixabayCategory);
+        const ck = "pixabay|" + (scene.pixabayCategory || "") + "|" + term + "|" + page + "|" + q.get("order");
         let data = cachedResponse(ck);
         if (!data) { data = await api("pixabay", "/api/videos/?" + q); storeResponse(ck, data); }
         if (data.totalHits != null) setPages("pixabay", term, Math.ceil(Math.min(data.totalHits, 200) / 40));
-        return (data.hits || []).map(h => {
-          const v = h.videos || {};
-          const pick = (bigScreen() && v.large && v.large.url) ? v.large : (v.medium && v.medium.url ? v.medium : (v.large && v.large.url ? v.large : v.small));
-          const small = v.small && v.small.url ? v.small : (v.tiny && v.tiny.url ? v.tiny : null);
-          if (!pick || !pick.url) return null;
-          return {
-            key: "pixabay:" + h.id, source: "pixabay", sourceName: "Pixabay",
-            url: pick.url, cacheUrl: small && small.url, width: pick.width, height: pick.height, duration: h.duration,
-            text: [h.tags, (h.pageURL || "").split("/videos/")[1] || ""].join(" ").replace(/[-/,]/g, " "),
-            title: h.tags || "",
-            author: h.user, authorUrl: h.user && h.user_id ? `https://pixabay.com/users/${encodeURIComponent(h.user)}-${h.user_id}/` : h.pageURL,
-            pageUrl: h.pageURL, license: "Pixabay Content License", licenseUrl: "https://pixabay.com/service/license-summary/"
-          };
-        }).filter(Boolean);
+        return mapPixabay(data);
       }
     },
     wikimedia: {
@@ -167,33 +222,7 @@
         });
         const data = await api("wikimedia", "/w/api.php?" + q);
         setPages("wikimedia", term, data.continue ? page + 1 : page);
-        const out = [];
-        for (const pg of Object.values((data.query && data.query.pages) || {})) {
-          const vi = pg.videoinfo && pg.videoinfo[0];
-          if (!vi) continue;
-          const md = vi.extmetadata || {};
-          const lic = stripHtml(md.LicenseShortName && md.LicenseShortName.value);
-          if (!/^(cc0|cc[- ]?zero|public domain|pd\b|cc[- ]by(-sa)?\b)/i.test(lic) || /\b(nc|nd)\b/i.test(lic)) continue;
-          // Choose a playable version around 720p (derivatives are Commons' transcodes).
-          const options = (vi.derivatives || []).filter(d => d.src && d.width && canPlay(d.type))
-            .sort((a, b) => Math.abs(a.height - 720) - Math.abs(b.height - 720));
-          let chosen = options[0];
-          if (!chosen && canPlay(vi.mime)) chosen = { src: vi.url, width: vi.width, height: vi.height };
-          if (!chosen) continue;
-          const smallest = options.slice().sort((a, b) => a.height - b.height).find(d => d.height >= 360);
-          const title = pg.title.replace(/^File:/, "").replace(/\.[a-z0-9]+$/i, "").replace(/_/g, " ");
-          out.push({
-            key: "wikimedia:" + pg.pageid, source: "wikimedia", sourceName: "Wikimedia Commons",
-            url: chosen.src, cacheUrl: smallest && smallest.src, width: chosen.width || vi.width, height: chosen.height || vi.height,
-            duration: vi.duration,
-            text: [title, stripHtml(md.ObjectName && md.ObjectName.value), stripHtml(md.ImageDescription && md.ImageDescription.value).slice(0, 400),
-              stripHtml(md.Categories && md.Categories.value).replace(/\|/g, " ")].join(" "),
-            title,
-            author: stripHtml(md.Artist && md.Artist.value).slice(0, 80) || "Unknown author", authorUrl: vi.descriptionurl,
-            pageUrl: vi.descriptionurl, license: lic, licenseUrl: md.LicenseUrl && md.LicenseUrl.value
-          });
-        }
-        return out;
+        return mapWikimedia(data);
       }
     }
   };
@@ -203,8 +232,13 @@
     if (v.width < v.height * 1.3) return false;                 // landscape only
     if (v.height < 360) return false;                           // sharp enough
     if (v.duration != null && v.duration < 6) return false;     // not a blink
-    if (BAD.test(v.text || "")) return false;
-    if (scene.mustMatch && !scene.mustMatch.test(v.text || "")) return false;
+    const text = v.text || "", topic = v.topic || text;
+    if (BAD.test(text)) return false;
+    // The scene's own rules. What the clip is ABOUT (Pixabay tags, Wikimedia
+    // title) must contain every "need" pattern; nothing anywhere in its
+    // description may match "none" — long descriptions only ever exclude.
+    if ((scene.need || []).some(re => !re.test(topic))) return false;
+    if (scene.none && scene.none.test(text)) return false;
     return true;
   }
 
@@ -342,9 +376,13 @@
     } catch (e) { URL.revokeObjectURL(objectUrl); return null; }
   }
 
-  /** Next clip for a scene, loaded into the given player; null if none. */
-  async function next(scene, currentKey, el) {
+  /** Next clip for a scene, loaded into the given player; null if none.
+   *  isCurrent(): false once the app no longer wants this clip (scene changed),
+   *  so an old search never takes the player away from a newer one. */
+  async function next(scene, currentKey, el, isCurrent) {
+    const live = () => !isCurrent || isCurrent();
     for (let attempt = 0; attempt < 6; attempt++) {
+      if (!live()) return null;
       const pool = pools[scene.id] || (pools[scene.id] = []);
       if (pool.length < 2 && navigator.onLine !== false) {
         const ok = await refill(scene);
@@ -352,6 +390,7 @@
       }
       const cand = pool.shift();
       if (!cand) break;
+      if (!live()) { pool.unshift(cand); return null; }
       if (recentSet.has(cand.key)) continue;
       try { return await load(cand, el); }
       catch (e) {
@@ -359,6 +398,7 @@
         console.warn("[videos] skip", cand.key, e.message);
       }
     }
+    if (!live()) return null;
     return fromCache(scene, currentKey, el);
   }
 
@@ -387,5 +427,6 @@
     recent = []; recentSet.clear(); lsSet("qp.vrecent", recent);
   }
 
-  window.QP_VIDEOS = { next, shown, status, clearCache, cacheAll, _acceptable: acceptable, _BAD: BAD };
+  window.QP_VIDEOS = { next, shown, status, clearCache, cacheAll, _acceptable: acceptable, _BAD: BAD,
+    _map: { pixabay: mapPixabay, wikimedia: mapWikimedia } };   // for tests
 })();

@@ -80,9 +80,40 @@
     }
   }
 
-  function display(clip, scene) {
-    if (!clip) {                           // nothing new: keep the current video playing
-      if (!state.shownClip) { $("#novideo").hidden = false; }
+  // Watchdog: a clip that stalls (slow network) or gets paused by the iPad is
+  // restarted, and if it stays stuck the next clip is shown straight away.
+  let lastT = -1, stuckSince = 0;
+  setInterval(() => {
+    const v = players[front];
+    if (!state.playing || !v || !v._showing || document.hidden || state.sleeping) { stuckSince = 0; return; }
+    if (v.paused && !needsTap) { const p = v.play(); if (p && p.catch) p.catch(() => {}); }
+    if (v.currentTime !== lastT) { lastT = v.currentTime; stuckSince = 0; return; }
+    if (!stuckSince) { stuckSince = Date.now(); return; }
+    if (Date.now() - stuckSince > 10000 && state.advance && !needsTap) {
+      stuckSince = 0;
+      console.warn("[videos] clip stuck — moving on");
+      clearTimeout(state.photoTimer);
+      state.advance();
+    }
+  }, 2000);
+
+  // Fade the picture out entirely (used when a new scene has no clip yet, so
+  // the old scene's video never plays with the new scene's sound).
+  function hideVideo() {
+    const old = players[front];
+    layers[front].classList.remove("visible");
+    old._showing = false;
+    setTimeout(() => { if (!old._showing) { try { old.pause(); } catch (e) { /* ignore */ } } }, 3500);
+    state.shownClip = null;
+    $("#photo-credit").textContent = "";
+    $("#novideo").hidden = false;
+  }
+
+  function display(clip, scene, newScene) {
+    if (!clip) {
+      // Same scene: keep the current clip playing. New scene: never keep the
+      // previous scene's picture — show the dark screen until a clip arrives.
+      if (newScene || !state.shownClip) hideVideo();
       setStatus(VIDEO_HELP());
       return;
     }
@@ -140,11 +171,15 @@
     // Sound and picture change together, as soon as the first clip is ready
     // (or after 9 s, the sound starts anyway while the video keeps loading).
     let audioStarted = false;
-    const audioTimer = setTimeout(() => { if (my === state.token) { audioStarted = true; startSceneAudio(scene); } }, 9000);
-    const clip = await VIDEOS.next(scene, null, backPlayer());
+    const audioTimer = setTimeout(() => {
+      if (my !== state.token) return;
+      audioStarted = true; startSceneAudio(scene);
+      if (state.shownClip && state.shownClip.sceneId !== scene.id) hideVideo();   // never mismatch picture and sound
+    }, 9000);
+    const clip = await VIDEOS.next(scene, null, backPlayer(), () => my === state.token);
     if (my !== state.token) return;
     clearTimeout(audioTimer);
-    display(clip, scene);
+    display(clip, scene, true);
     if (!audioStarted) startSceneAudio(scene);
     schedulePhotos(my, scene);
     resetAutoScene();
@@ -161,10 +196,10 @@
     const currentKey = state.shownClip && state.shownClip.key;
     // Load the next clip into the back player once the crossfade has finished.
     const prepared = new Promise(r => setTimeout(r, 4000))
-      .then(() => my === state.token ? VIDEOS.next(scene, currentKey, backPlayer()) : null);
+      .then(() => my === state.token ? VIDEOS.next(scene, currentKey, backPlayer(), () => my === state.token) : null);
     state.prepared = prepared;
     const startedAt = Date.now();
-    const wait = () => {
+    const wait = state.advance = () => {
       if (my !== state.token) return;
       if (!state.playing) { state.photoTimer = setTimeout(wait, 1000); return; }
       prepared.then(p => {
