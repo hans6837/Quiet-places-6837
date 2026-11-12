@@ -6,7 +6,7 @@
  *  - Remembers recently shown clip IDs and skips them.
  *  - Landscape clips only; skips anything whose title/tags mention people,
  *    buildings, text, drawings… Animal scenes must name the animal.
- *  - The next clip is loaded in a hidden <video> before it is shown.
+ *  - The next clip is loaded into the hidden (back) player before it is shown.
  *  - Saves recent clips (IndexedDB) so the app keeps working offline.
  *
  * Licences: Pixabay Content License (free, no attribution required, but we
@@ -281,7 +281,7 @@
       if (len && len > CACHE_MAX_BYTES) return;
       const blob = await r.blob();
       if (!blob.type.startsWith("video/") || blob.size > CACHE_MAX_BYTES) return;
-      const meta = Object.assign({}, clip); delete meta.el; delete meta.objectUrl;
+      const meta = Object.assign({}, clip); delete meta.el; delete meta.objectUrl; delete meta.fromCache;
       await tx("readwrite", s => s.put({ key: clip.key, sceneId: clip.sceneId, meta, blob, ts: Date.now() }));
       const all = await cacheAll();
       const drop = [];
@@ -297,36 +297,39 @@
   }
 
   // ------------------------------------------------------------ loading
-  // Load a clip in a hidden, muted <video> and wait until it can play.
-  function prepareElement(src) {
+  // Load a clip into one of the app's two (already unlocked) video players
+  // and wait until it can play. A newer load into the same player wins.
+  function loadInto(el, src) {
     return new Promise((resolve, reject) => {
-      const el = document.createElement("video");
-      el.muted = true; el.defaultMuted = true; el.playsInline = true;
-      el.setAttribute("muted", ""); el.setAttribute("playsinline", ""); el.setAttribute("webkit-playsinline", "");
-      el.loop = true; el.preload = "auto";   // no crossOrigin: plain playback needs no CORS
+      const token = (el._token || 0) + 1; el._token = token;
+      el._showing = false;
       let settled = false;
-      const done = (ok, why) => {
+      const finish = (ok, why) => {
         if (settled) return; settled = true; clearTimeout(t);
-        el.oncanplay = el.onloadeddata = el.onerror = null;
-        if (ok) resolve(el); else { el.removeAttribute("src"); el.load(); reject(new Error(why)); }
+        el.removeEventListener("loadeddata", onOk); el.removeEventListener("canplay", onOk); el.removeEventListener("error", onErr);
+        if (el._token !== token) return reject(new Error("superseded"));
+        ok ? resolve(el) : reject(new Error(why));
       };
-      const t = setTimeout(() => done(false, "video timeout"), 30000);
-      el.onloadeddata = el.oncanplay = () => done(true);
-      el.onerror = () => done(false, "video failed");
+      const onOk = () => finish(true);
+      const onErr = () => finish(false, "video failed");
+      const t = setTimeout(() => finish(false, "video timeout"), 30000);
+      el.addEventListener("loadeddata", onOk); el.addEventListener("canplay", onOk); el.addEventListener("error", onErr);
+      el.muted = true; el.loop = true;
       el.src = src;
       el.load();
       // iPads only buffer when asked to play; muted inline play is allowed.
-      const p = el.play(); if (p && p.then) p.then(() => { if (!el._showing) el.pause(); }).catch(() => {});
+      const p = el.play();
+      if (p && p.then) p.then(() => { if (!el._showing && el._token === token) el.pause(); }).catch(() => {});
     });
   }
 
-  async function load(clip) {
-    const el = await prepareElement(clip.url);
-    if (el.videoWidth && el.videoWidth < el.videoHeight * 1.2) { el.removeAttribute("src"); el.load(); throw new Error("not landscape"); }
+  async function load(clip, el) {
+    await loadInto(el, clip.url);
+    if (el.videoWidth && el.videoWidth < el.videoHeight * 1.2) throw new Error("not landscape");
     return Object.assign({}, clip, { el });
   }
 
-  async function fromCache(scene, excludeKey) {
+  async function fromCache(scene, excludeKey, el) {
     const all = (await cacheAll()).filter(r => r.sceneId === scene.id && r.key !== excludeKey);
     if (!all.length) return null;
     all.sort((a, b) => a.ts - b.ts);
@@ -334,13 +337,13 @@
     tx("readwrite", s => { r.ts = Date.now(); s.put(r); });
     const objectUrl = URL.createObjectURL(r.blob);
     try {
-      const el = await prepareElement(objectUrl);
+      await loadInto(el, objectUrl);
       return Object.assign({}, r.meta, { el, objectUrl, fromCache: true });
     } catch (e) { URL.revokeObjectURL(objectUrl); return null; }
   }
 
-  /** Next clip for a scene, loaded and ready to play; null -> painted scene. */
-  async function next(scene, currentKey) {
+  /** Next clip for a scene, loaded into the given player; null if none. */
+  async function next(scene, currentKey, el) {
     for (let attempt = 0; attempt < 6; attempt++) {
       const pool = pools[scene.id] || (pools[scene.id] = []);
       if (pool.length < 2 && navigator.onLine !== false) {
@@ -350,10 +353,13 @@
       const cand = pool.shift();
       if (!cand) break;
       if (recentSet.has(cand.key)) continue;
-      try { return await load(cand); }
-      catch (e) { console.warn("[videos] skip", cand.key, e.message); }
+      try { return await load(cand, el); }
+      catch (e) {
+        if (e.message === "superseded") return null;     // another load took this player
+        console.warn("[videos] skip", cand.key, e.message);
+      }
     }
-    return fromCache(scene, currentKey);
+    return fromCache(scene, currentKey, el);
   }
 
   function shown(clip) {

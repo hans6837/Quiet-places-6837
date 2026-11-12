@@ -86,11 +86,13 @@ source stay visible in a corner.
   title mention people, buildings, boats, text, animation and similar are
   skipped. Animal scenes also need the animal named (e.g. "loon").
 - Clips play muted (the sound is the matched Freesound recording), full screen,
-  looping until the next one. The next clip loads in the background, and clips
+  looping until the next one. If the iPad refuses to start a clip (e.g. Low
+  Power Mode), a tap anywhere starts it. The next clip loads in the background, and clips
   crossfade over 3 seconds.
 - Up to 12 recent clips are saved in the browser, spread across the scenes. If
   a limit is hit or the internet drops, a saved clip of the *same* scene plays,
-  so the sound still matches. With nothing saved, the painted scene is shown.
+  so the sound still matches. With nothing new to show, the current video keeps
+  playing. There are no photos or painted pictures anywhere in the app.
 - Limits: Pixabay allows 100 requests/minute and asks that searches be cached
   for 24 hours (the app does both); Wikimedia is capped at 120/hour.
 
@@ -129,7 +131,7 @@ tests/                         python3 -m unittest discover tests
 
 - **Scenes are silent:** check that `freesoundKey` is set in `config.js`, then
   run `python3 server.py --sounds` and read what it prints.
-- **Only painted scenes:** open **Settings → Video sources**. "No key" means
+- **"Looking for a video…" stays on screen:** open **Settings → Video sources**. "No key" means
   that key is missing in `config.js`. "Paused" means a rate limit was reached,
   and the source resumes by itself.
 - **Port already in use:** the server picks the next free port and prints the

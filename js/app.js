@@ -1,5 +1,6 @@
 /*
  * Quiet Places — app controller: scenes, video rotation, controls, timers.
+ * Videos only: no photos or painted pictures anywhere.
  */
 (function () {
   "use strict";
@@ -33,42 +34,28 @@
   const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const link = (href, text) => href ? `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(text)}</a>` : esc(text);
 
-  // ------------------------------------------------------------ stage / photos
+  // ------------------------------------------------------------ stage: two video players
+  // The stage has two permanent <video> players: one plays, the other loads
+  // the next clip; they crossfade. Both are "unlocked" by the user's taps:
+  // on iPads a video element that was started from a tap may later start new
+  // clips by itself (otherwise, e.g. in Low Power Mode, it would stay frozen).
   const layers = Array.from(document.querySelectorAll(".layer"));
+  const players = layers.map(l => l.querySelector("video"));
   let front = 0;
-  const paintedCache = {};
+  const backPlayer = () => players[1 - front];
 
-  function painted(sceneId) {
-    if (!paintedCache[sceneId]) {
-      const w = Math.min(2400, Math.round(window.innerWidth * Math.min(2, devicePixelRatio || 1)));
-      const h = Math.round(w * window.innerHeight / window.innerWidth);
-      paintedCache[sceneId] = window.QP_PAINT(sceneId, w, h);
-    }
-    return paintedCache[sceneId];
+  function unlockPlayers() {
+    players.forEach((v, i) => {
+      if (!v.paused) return;
+      if (i === front && v._showing && !state.playing) return;   // paused on purpose
+      const p = v.play();
+      // Only the on-screen player keeps playing, and only while not paused.
+      if (p && p.then) p.then(() => { if (!(i === front && v._showing && state.playing)) v.pause(); }).catch(() => {});
+    });
   }
 
-  function kenBurns(img, secs) {
-    if (img._anim) img._anim.cancel();
-    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const r = (a, b) => a + Math.random() * (b - a);
-    const zoomIn = Math.random() < 0.6;
-    const s0 = zoomIn ? 1.0 : r(1.1, 1.16), s1 = zoomIn ? r(1.1, 1.16) : 1.0;
-    const x0 = r(-2.5, 2.5), y0 = r(-1.5, 1.5), x1 = r(-2.5, 2.5), y1 = r(-1.5, 1.5);
-    img._anim = img.animate([
-      { transform: `scale(${s0}) translate(${x0}%, ${y0}%)` },
-      { transform: `scale(${s1}) translate(${x1}%, ${y1}%)` }
-    ], { duration: secs * 1000, easing: "ease-in-out", fill: "forwards" });
-    if (!state.playing) img._anim.pause();
-  }
-
-  // Each layer holds either a playing video clip or the painted fallback image.
-  function clearLayer(layer) {
-    const v = layer.querySelector("video");
-    if (v) { v._showing = false; try { v.pause(); } catch (e) {} v.removeAttribute("src"); v.load(); v.remove(); }
-  }
-  // Start a clip and make sure it really moves. iPads in Low Power Mode (and
-  // sometimes otherwise) refuse to start videos that were not started by a
-  // tap: then the next tap anywhere on the screen starts it.
+  // Start a clip and make sure it really moves; if the iPad still refused,
+  // the next tap anywhere starts it.
   let needsTap = false;
   function startVideo(el) {
     const p = el.play();
@@ -84,8 +71,9 @@
     }, 2500);
   }
   function kickVideo() {
-    const v = document.querySelector(".layer.visible video");
-    if (!v || !state.playing) return;
+    unlockPlayers();
+    const v = players[front];
+    if (!v || !v._showing || !state.playing) return;
     if (v.paused || needsTap) {
       const p = v.play();
       if (p && p.then) p.then(() => { needsTap = false; if (/Tap the screen to start/.test($("#status").textContent)) setStatus(""); }).catch(() => {});
@@ -93,30 +81,28 @@
   }
 
   function display(clip, scene) {
-    const back = 1 - front;
-    const layer = layers[back], img = layer.querySelector("img");
-    const oldLayer = layers[front];
-    const oldClip = state.shownClip;
-    clearLayer(layer);
-    if (clip) {
-      const el = clip.el;
-      el.className = "clip"; el._showing = true;
-      img.style.display = "none";
-      layer.appendChild(el);
-      try { el.currentTime = 0; } catch (e) { /* ignore */ }
-      if (state.playing) startVideo(el);
-    } else {
-      img.style.display = "";
-      img.src = painted(scene.id);
-      kenBurns(img, state.photoInterval + 6);
+    if (!clip) {                           // nothing new: keep the current video playing
+      if (!state.shownClip) { $("#novideo").hidden = false; }
+      setStatus(VIDEO_HELP());
+      return;
     }
-    layer.classList.add("visible");
-    oldLayer.classList.remove("visible");
+    $("#novideo").hidden = true;
+    const back = players.indexOf(clip.el) >= 0 ? players.indexOf(clip.el) : 1 - front;
+    if (back === front) { clip.el._showing = true; if (state.playing) startVideo(clip.el); state.shownClip = clip; VIDEOS.shown(clip); renderCredit(clip, scene); return; }
+    const el = players[back];             // the clip was loaded into the back player
+    const oldEl = players[front];
+    const oldClip = state.shownClip;
+    el._showing = true;
+    try { el.currentTime = 0; } catch (e) { /* ignore */ }
+    if (state.playing) startVideo(el);
+    layers[back].classList.add("visible");
+    layers[front].classList.remove("visible");
     front = back;
     state.shownClip = clip;
-    if (clip) VIDEOS.shown(clip);
-    setTimeout(() => {                      // after the 3 s crossfade: free the old clip
-      if (layers[front] !== oldLayer) clearLayer(oldLayer);
+    VIDEOS.shown(clip);
+    oldEl._showing = false;
+    setTimeout(() => {                      // after the 3 s crossfade: stop the old clip
+      if (!oldEl._showing) { try { oldEl.pause(); } catch (e) { /* ignore */ } }
       if (oldClip && oldClip.objectUrl) URL.revokeObjectURL(oldClip.objectUrl);
     }, 3500);
     renderCredit(clip, scene);
@@ -124,55 +110,43 @@
 
   function renderCredit(clip, scene) {
     let html;
-    if (!clip) html = `Painted scene · ${esc(scene.name)}`;
-    else if (clip.source === "pixabay")
+    if (clip.source === "pixabay")
       html = `Video by ${link(clip.authorUrl, clip.author)} on ${link(clip.pageUrl, "Pixabay")}`;
     else
       html = `Video: ${link(clip.pageUrl, clip.author)} · ${link(clip.licenseUrl, clip.license)} · ${link(clip.pageUrl, "Wikimedia Commons")}`;
-    if (clip && clip.fromCache) html += ` <span title="Played from the offline copy">· saved</span>`;
+    if (clip.fromCache) html += ` <span title="Played from the offline copy">· saved</span>`;
     $("#photo-credit").innerHTML = html;
     $("#credits-photo").innerHTML = html;
-    if (!clip) setStatus(VIDEO_HELP());
-    else setStatus(clip.fromCache ? "Offline or rate-limited — playing saved videos" : "");
+    setStatus(clip.fromCache ? "Offline or rate-limited — playing saved videos" : "");
   }
 
   function VIDEO_HELP() {
-    if (navigator.onLine === false) return "Offline — showing the painted scene";
-    return "No video available right now — showing the painted scene";
+    if (navigator.onLine === false) return "Offline — no saved video for this scene yet";
+    return "No new video available right now";
   }
 
   function setStatus(t) { $("#status").textContent = t || ""; }
-
-  function withTimeout(p, ms) {
-    return Promise.race([p, new Promise(res => setTimeout(() => res(undefined), ms))]);
-  }
 
   async function goScene(id) {
     const scene = sceneById(id);
     const my = ++state.token;
     state.sceneId = id; save("scene", id);
     clearTimeout(state.photoTimer);
-    if (state.prepared) { const old = state.prepared; state.prepared = null; old.then(release); }
+    state.prepared = null;
     renderSceneLabels();
     setStatus("Finding a video…");
+    if (!state.shownClip) $("#novideo").hidden = true;
 
-    const firstPhoto = VIDEOS.next(scene, null);
-    const quick = await withTimeout(firstPhoto, 9000);
+    // Sound and picture change together, as soon as the first clip is ready
+    // (or after 9 s, the sound starts anyway while the video keeps loading).
+    let audioStarted = false;
+    const audioTimer = setTimeout(() => { if (my === state.token) { audioStarted = true; startSceneAudio(scene); } }, 9000);
+    const clip = await VIDEOS.next(scene, null, backPlayer());
     if (my !== state.token) return;
-    if (quick === undefined) {
-      // Still loading: show the painted scene now, swap in the video when ready.
-      display(null, scene);
-      startSceneAudio(scene);
-      firstPhoto.then(p => {
-        if (my !== state.token) return;
-        if (p) display(p, scene);
-        schedulePhotos(my, scene);
-      });
-    } else {
-      display(quick, scene);
-      startSceneAudio(scene);
-      schedulePhotos(my, scene);
-    }
+    clearTimeout(audioTimer);
+    display(clip, scene);
+    if (!audioStarted) startSceneAudio(scene);
+    schedulePhotos(my, scene);
     resetAutoScene();
   }
 
@@ -182,27 +156,20 @@
     if (!state.playing) AUDIO.pause();
   }
 
-  // Stop a preloaded clip that will not be shown (frees memory and data).
-  function release(clip) {
-    if (!clip || clip === state.shownClip || !clip.el) return;
-    clip.el._showing = false; clip.el.removeAttribute("src"); clip.el.load();
-    if (clip.objectUrl) URL.revokeObjectURL(clip.objectUrl);
-  }
-
   function schedulePhotos(my, scene) {
     clearTimeout(state.photoTimer);
     const currentKey = state.shownClip && state.shownClip.key;
-    const prepared = VIDEOS.next(scene, currentKey); // preload while the current one plays
+    // Load the next clip into the back player once the crossfade has finished.
+    const prepared = new Promise(r => setTimeout(r, 4000))
+      .then(() => my === state.token ? VIDEOS.next(scene, currentKey, backPlayer()) : null);
     state.prepared = prepared;
     const startedAt = Date.now();
     const wait = () => {
       if (my !== state.token) return;
       if (!state.playing) { state.photoTimer = setTimeout(wait, 1000); return; }
       prepared.then(p => {
-        if (my !== state.token) { release(p); return; }
-        // If nothing new could be loaded, keep the current clip (or painted scene).
+        if (my !== state.token) return;
         if (p && (!state.shownClip || p.key !== state.shownClip.key)) display(p, scene);
-        else release(p);
         schedulePhotos(my, scene);
       });
     };
@@ -246,11 +213,8 @@
   function setPlaying(on) {
     state.playing = on;
     $("#btn-play").textContent = on ? "❚❚" : "▶";
-    layers.forEach(l => {
-      const a = l.querySelector("img")._anim; if (a) on ? a.play() : a.pause();
-      const v = l.querySelector("video");
-      if (v && l.classList.contains("visible")) { if (on) startVideo(v); else v.pause(); }
-    });
+    const v = players[front];
+    if (v && v._showing) { if (on) startVideo(v); else v.pause(); }
     if (on) AUDIO.resume(); else AUDIO.pause();
     poke();
   }
@@ -373,13 +337,11 @@
   function init() {
     if (!sceneById(state.sceneId)) state.sceneId = randomScene().id;
     renderCats(); renderSceneLabels(); startNotes();
-    // Painted preview behind the start screen
-    layers[0].querySelector("img").src = painted(state.sceneId);
-    layers[0].classList.add("visible");
     $("#volume").value = state.volume;
 
     $("#begin").addEventListener("click", () => {
       AUDIO.unlock();
+      unlockPlayers();
       AUDIO.setVolume(state.volume / 100);
       document.body.classList.remove("not-started");
       state.playing = true;

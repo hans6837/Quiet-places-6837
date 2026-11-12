@@ -2,7 +2,7 @@
  * The 12 scenes. Each one ties together:
  *  - video search terms (what the camera should show)
  *  - the sound folder in /sounds (what you hear)
- *  - a painted fallback (used only when no video can be loaded)
+ *  - (videos only: no photos or painted pictures)
  *
  * Search terms are chosen to match exactly what the recordings contain, so a
  * loon video always comes with loon calls, surf on rocks with a rocky coast…
@@ -18,7 +18,6 @@ window.QP_SCENES = [
     terms: ["sunset beach waves", "ocean shore golden hour", "sunset sea waves sand", "beach waves evening light"],
     wikiTerms: ["sunset beach waves", "beach sunset sea"],
     mustMatch: /\b(sunsets?|sunrise|golden hour|dusk|evening|beach|sand|shore)\b/i,
-    paint: "sunsetBeach"
   },
   {
     id: "moonlit-shore", name: "Moonlit Shore", category: "sea",
@@ -26,7 +25,6 @@ window.QP_SCENES = [
     terms: ["moonlight ocean night", "moon over sea", "moonlit beach", "full moon sea reflection"],
     wikiTerms: ["moon over sea", "moonlight sea"],
     mustMatch: /\b(moon|moonlight|moonlit|night)\b/i,
-    paint: "moonlitShore"
   },
   {
     id: "rocky-coast", name: "Rocky Coast", category: "sea",
@@ -34,7 +32,6 @@ window.QP_SCENES = [
     terms: ["waves crashing rocks", "rocky coastline surf", "sea waves rocks spray", "rugged coast waves"],
     wikiTerms: ["waves crashing rocks", "rocky coast surf"],
     mustMatch: /\b(rocks?|rocky|cliffs?|crags?|boulders?|reef)\b/i,
-    paint: "rockyCoast"
   },
   {
     id: "lagoon", name: "Tropical Lagoon", category: "sea",
@@ -42,7 +39,6 @@ window.QP_SCENES = [
     terms: ["calm tropical lagoon", "turquoise shallow water beach", "clear lagoon water", "tropical beach calm sea"],
     wikiTerms: ["lagoon turquoise", "tropical lagoon"],
     mustMatch: /\b(lagoon|turquoise|tropical|shallow|clear water|atoll|caribbean|maldives)\b/i,
-    paint: "lagoon"
   },
   // ---------------------------------------------------------------- Forest
   {
@@ -51,7 +47,6 @@ window.QP_SCENES = [
     terms: ["misty pine forest morning", "sun rays forest", "pine forest sunlight", "foggy conifer forest"],
     wikiTerms: ["pine forest morning mist", "sun rays forest"],
     mustMatch: /\b(pines?|conifers?|spruce|fir|forest|woods|trees)\b/i,
-    paint: "morningPines"
   },
   {
     id: "forest-stream", name: "Forest Stream", category: "forest",
@@ -59,7 +54,6 @@ window.QP_SCENES = [
     terms: ["forest creek stones", "woodland stream", "mossy stream forest", "brook in forest"],
     wikiTerms: ["forest creek", "woodland stream"],
     mustMatch: /\b(streams?|creeks?|brooks?|rivulet|river|waterfall|rapids)\b/i,
-    paint: "forestStream"
   },
   {
     id: "forest-rain", name: "Forest Rain", category: "forest",
@@ -67,7 +61,6 @@ window.QP_SCENES = [
     terms: ["rain forest leaves", "rainy woods", "raindrops green leaves", "rain in the forest"],
     wikiTerms: ["rain forest leaves", "rainy forest"],
     mustMatch: /\b(rain|rainy|raindrops?|drops?|drizzle|wet)\b/i,
-    paint: "forestRain"
   },
   {
     id: "forest-night", name: "Forest Night", category: "forest",
@@ -75,7 +68,6 @@ window.QP_SCENES = [
     terms: ["forest at night moon", "fireflies forest", "night forest stars", "moonlit woods"],
     wikiTerms: ["forest night moon", "fireflies forest"],
     mustMatch: /\b(night|moon|moonlight|fireflies|firefly|dark|stars?)\b/i,
-    paint: "forestNight"
   },
   // ---------------------------------------------------------------- Animals
   {
@@ -84,7 +76,6 @@ window.QP_SCENES = [
     terms: ["common loon lake", "loon swimming", "common loon", "loon bird water"],
     wikiTerms: ["Gavia immer", "common loon"],
     mustMatch: /\b(loons?|gavia|great northern diver|diver)\b/i,
-    paint: "loons"
   },
   {
     id: "frog-pond", name: "Frog Pond", category: "animals",
@@ -92,7 +83,6 @@ window.QP_SCENES = [
     terms: ["frog lily pad pond", "pond at dusk", "frog in pond", "lily pond evening"],
     wikiTerms: ["frog pond", "tree frog"],
     mustMatch: /\b(frogs?|toads?|peepers?|ponds?|lily|lilies|water ?lil\w*|amphibians?|hyla|pseudacris|lithobates|rana)\b/i,
-    paint: "frogPond"
   },
   {
     id: "whales", name: "Whale Song", category: "animals",
@@ -100,7 +90,6 @@ window.QP_SCENES = [
     terms: ["humpback whale underwater", "whale ocean", "humpback whale", "whale tail ocean"],
     wikiTerms: ["Megaptera novaeangliae", "humpback whale"],
     mustMatch: /\b(whales?|humpback|megaptera|cetaceans?)\b/i,
-    paint: "whales"
   },
   {
     id: "meadow", name: "Songbird Meadow", category: "animals",
@@ -108,7 +97,6 @@ window.QP_SCENES = [
     terms: ["chickadee branch", "songbird meadow", "wildflower meadow", "white-throated sparrow", "chickadee"],
     wikiTerms: ["Poecile atricapillus", "Zonotrichia albicollis", "wildflower meadow"],
     mustMatch: /\b(chickadees?|poecile|sparrows?|zonotrichia|songbirds?|birds?|meadows?|wildflowers?|flowers?)\b/i,
-    paint: "meadow"
   }
 ];
 
